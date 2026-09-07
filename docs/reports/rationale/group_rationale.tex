@@ -37,6 +37,11 @@ We are not replacing agent networks in production. We are showing a cleaner midd
 
 On a R1{,}370 send at the seeded defaults and the 18.50 fallback rate, the transaction fee is R38.70, not R214. That is an illustration with simulated rails, not a promise that a licensed product would charge R38.70. The point is that the formula is public and the sketch's ``quotes forever consume limit'' behaviour is gone.
 
+We also give the recipient a custodial Testnet wallet they can log into, rather than only a payout PIN. They can hold the IOU, inspect the Payment hash on an explorer, or ask for a simulated USD or ZAR cash-out. That is closer to a fintech wallet than to a collect-at-the-pharmacy model. It still needs a real cash-out partner if it were ever more than coursework.
+
+\section{What we are not claiming}
+A ledger hop does not make Western Union obsolete, and it does not make us a bank. We do not operate agents, we do not take rand, we do not pay out dollars, and we do not have a licence. We do not run an AML rules engine. SQLite is not a production ledger. Tests mock XRPL. Redis has to be running or the worker has nothing to read. Those limits are documented in the specification so a marker is not sold a story the code cannot keep \citep{UCTBrief2026}.
+
 \section{XRPL issued tokens, in course language}
 XRP is the only asset every XRPL account can hold without asking. Everything else---RLUSD, a university IOU, a game token---is an \emph{issued currency}. The course resources call these trust-line tokens, or informally IOUs: a promise from an issuing account that it owes the holder that amount of the underlying asset \citep{UCTResources2026,XRPLIssued}.
 
@@ -105,6 +110,7 @@ Patch~B was not allowed to rewrite \texttt{0001\_initial}. It added \texttt{0002
 
 Doing B first would have meant either editing 0001 (forbidden once A shipped) or stacking quote columns onto a settlement path that could still double-pay. Doing A first meant the worker invariants were in place, then B could add \texttt{expires\_at} and \texttt{token\_hash} without touching Payment code.
 
+\newpage
 \section{How to run and demo on Windows}
 You need Python~3.11+, a local Redis on port 6379, and two Fernet keys. This team's Redis was Memurai / Redis~5.0.14; Docker \texttt{redis} or WSL \texttt{redis-server} also work. Homebrew is not the Windows path.
 

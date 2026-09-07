@@ -1,7 +1,10 @@
+import type { CSSProperties } from "react"
 import type { CashInMethod, CashOutStatus, SettlementStatus } from "../../api/types"
 import { cashInLabel, formatDateTime, formatZar } from "./format"
 
-export { staggerStyle } from "./StatusTimeline"
+export function staggerStyle(index: number): CSSProperties {
+  return { ["--i"]: String(index) } as CSSProperties
+}
 
 export function formatOptionalDate(iso: string | null | undefined): string {
   if (!iso) return "—"

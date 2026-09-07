@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { api } from "../../api/client"
 import type { Wallet as WalletData } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail, formatRlusd, remittanceLabel } from "./format"
 import { Badge } from "./StatusTimeline"
 import {

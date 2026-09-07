@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { api } from "../../api/client"
 import type { FeeConfig, LimitTier } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail } from "../app/format"
 import { staggerStyle, tierLabel } from "../app/walletFormat"
 

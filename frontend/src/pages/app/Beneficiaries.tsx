@@ -5,7 +5,8 @@ import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { Beneficiary, KycStatusOut } from "../../api/types"
 import { errorDetail, formatDateTime } from "./format"
-import { Badge, staggerStyle } from "./StatusTimeline"
+import { Badge } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 export function Beneficiaries() {
   const [people, setPeople] = useState<Beneficiary[]>([])

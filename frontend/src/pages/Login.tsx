@@ -2,8 +2,9 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { ApiError } from "../api/types"
-import { useAuth } from "../auth/AuthContext"
+import { useAuth } from "../auth/useAuth"
 import { Nav } from "../components/Nav"
+import { GridTrail } from "../fx/GridTrail"
 
 export function Login() {
   const { login } = useAuth()
@@ -32,6 +33,7 @@ export function Login() {
 
   return (
     <div className="auth-page">
+      <GridTrail />
       <Nav />
       <h1>Sign in</h1>
       <p className="page-lead">Use the email and password for your Group 3 remittance account.</p>

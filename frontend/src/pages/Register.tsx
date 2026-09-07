@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { api } from "../api/client"
 import { ApiError } from "../api/types"
 import { Nav } from "../components/Nav"
+import { GridTrail } from "../fx/GridTrail"
 
 export function Register() {
   const navigate = useNavigate()
@@ -35,6 +36,7 @@ export function Register() {
 
   return (
     <div className="auth-page">
+      <GridTrail />
       <Nav />
       <h1>Create an account</h1>
       <p className="page-lead">

@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import type { Remittance, RemittanceStatus } from "../../api/types"
 import {
   cashInLabel,
@@ -140,8 +139,4 @@ export function RemittanceBadge({
     return <Badge status="expired" label="Expired" />
   }
   return <Badge status={status} label={remittanceLabel(status)} />
-}
-
-export function staggerStyle(index: number): CSSProperties {
-  return { ["--i"]: String(index) } as CSSProperties
 }

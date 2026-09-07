@@ -1,18 +1,13 @@
 import { Link, useLocation } from "react-router-dom"
-import { useAuth } from "../auth/AuthContext"
-
-function onLightPath(pathname: string): boolean {
-  return pathname.startsWith("/login") || pathname.startsWith("/register")
-}
+import { useAuth } from "../auth/useAuth"
 
 export function Nav() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
-  const light = onLightPath(pathname)
   const landing = pathname === "/"
 
   return (
-    <header className={`nav${light ? " nav--on-light" : ""}`}>
+    <header className="nav">
       <Link to="/" className="nav__logo">
         group 3
       </Link>

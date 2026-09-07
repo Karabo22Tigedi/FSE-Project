@@ -4,13 +4,8 @@ import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { Remittance } from "../../api/types"
 import { errorDetail, formatDateTime, isExpired } from "./format"
-import {
-  QuoteBreakdown,
-  RemittanceBadge,
-  StatusTimeline,
-  TxHash,
-  staggerStyle,
-} from "./StatusTimeline"
+import { QuoteBreakdown, RemittanceBadge, StatusTimeline, TxHash } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 export function Track() {
   const { ref } = useParams<{ ref: string }>()

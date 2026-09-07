@@ -10,13 +10,8 @@ import {
   formatDateTime,
   isExpired,
 } from "./format"
-import {
-  QuoteBreakdown,
-  RemittanceBadge,
-  StatusTimeline,
-  TxHash,
-  staggerStyle,
-} from "./StatusTimeline"
+import { QuoteBreakdown, RemittanceBadge, StatusTimeline, TxHash } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 const CASH_IN_METHODS: { value: CashInMethod; hint: string }[] = [
   { value: "agent_cash", hint: "Pay ZAR in cash at a partner agent." },

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { api } from "../../api/client"
 import type { SettlementMessage } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail } from "../app/format"
 import { Badge } from "../app/StatusTimeline"
 import {

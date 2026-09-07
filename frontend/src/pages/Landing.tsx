@@ -35,7 +35,34 @@ const FEATURES = [
     body: "MG + 10 digits, status through settlement",
   },
 ] as const
-const METHODS = ["Agent cash", "Bank transfer", "Card", "XRPL Testnet"] as const
+const CONTACT_TILES = [
+  "Annita Ngoma",
+  "Karabo Tigedi",
+  "Kerry-Lynn Whyte",
+  "Liltha Mzamo",
+  "Nikola Milosavljevic",
+  "UCT ECO5040W",
+  "XRPL Testnet",
+] as const
+const CONTACT_FACTS = [
+  {
+    label: "Course",
+    body: "ECO5040W · Financial Software Engineering · University of Cape Town",
+  },
+  {
+    label: "Prototype",
+    body: "XRPL Remit · simulated ZAR rails · UCTUSD on Testnet · no live customer funds",
+  },
+  {
+    label: "Campus",
+    body: "School of Economics · Rondebosch, Cape Town",
+  },
+  {
+    label: "Source",
+    body: "github.com/Karabo22Tigedi/FSE-Project",
+    href: "https://github.com/Karabo22Tigedi/FSE-Project",
+  },
+] as const
 
 function splitWords(words: readonly string[]) {
   return words.map((word) => (
@@ -246,7 +273,7 @@ export function Landing() {
     document.getElementById(id)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" })
   }, [fontsReady, hash, heroReady])
 
-  const methodTiles = [...METHODS, ...METHODS, ...METHODS, ...METHODS]
+  const contactTiles = [...CONTACT_TILES, ...CONTACT_TILES, ...CONTACT_TILES]
 
   return (
     <div className="landing-page" ref={rootRef}>
@@ -292,7 +319,7 @@ export function Landing() {
         </svg>
       </section>
 
-      <section className="create">
+      <section className="create" id="faq">
         <CreateCoins />
         <div className="create__intro-wrapper">
           <div className="create__heading-wrapper">
@@ -317,7 +344,7 @@ export function Landing() {
             </div>
           ))}
         </div>
-        <p id="faq" className="create__faq">
+        <p className="create__faq">
           Quotes lock for 15 minutes. Cancel a draft so it does not consume daily or monthly ZAR
           limits. Track & Trace uses MG plus ten digits through Testnet settlement.
         </p>
@@ -358,21 +385,31 @@ export function Landing() {
         <ScanCursor sectionRef={scanRef} />
       </section>
 
-      <section className="payment">
+      <section className="payment" id="contact">
         <div className="payment__wrapper">
-          <h1 className="payment__heading">
-            Simulated cash-in,
-            <br />
-            real Testnet settlement.
-          </h1>
+          <h1 className="payment__heading">Contact</h1>
           <div className="payment__text">
-            Agent cash, bank transfer, and card are simulated rails. Settlement still posts on XRPL
-            Testnet — no Visa, iDEAL, or live customer funds.
+            UCT ECO5040W Group 3. Academic remittance prototype — no customer inbox, no Visa, no
+            live funds.
+          </div>
+          <div className="contact-facts">
+            {CONTACT_FACTS.map((fact) => (
+              <article key={fact.label} className="contact-facts__item">
+                <h2>{fact.label}</h2>
+                {"href" in fact ? (
+                  <a href={fact.href} target="_blank" rel="noreferrer">
+                    {fact.body}
+                  </a>
+                ) : (
+                  <p>{fact.body}</p>
+                )}
+              </article>
+            ))}
           </div>
         </div>
         <div className="payment__methods">
           <div className="payment__track">
-            {methodTiles.map((label, index) => (
+            {contactTiles.map((label, index) => (
               <div key={`${label}-${index}`} className="payment__tile">
                 <span className="payment__tile-label">{label}</span>
               </div>
@@ -394,7 +431,7 @@ export function Landing() {
               Register
             </Link>
           </div>
-          <div className="footer__bottom" id="contact">
+          <div className="footer__bottom">
             <div className="footer__powered">UCT ECO5040W · no real customer funds · Testnet only</div>
             <div className="footer__copyright">Group 3 · XRPL Remit</div>
           </div>

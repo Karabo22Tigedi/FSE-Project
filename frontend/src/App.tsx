@@ -45,6 +45,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/contact" element={<Navigate to="/#contact" replace />} />
           <Route
             path="/app"
             element={

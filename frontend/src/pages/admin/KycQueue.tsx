@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { api } from "../../api/client"
 import type { KycOut } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail, formatDateTime, kycLabel } from "../app/format"
 import { Badge } from "../app/StatusTimeline"
 import { formatOptionalDate, staggerStyle } from "../app/walletFormat"

@@ -3,9 +3,10 @@ import type { FormEvent } from "react"
 import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { KycStatus, KycStatusOut, KycSubmit } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail, kycLabel, toDateInput, todayInput } from "./format"
-import { Badge, staggerStyle } from "./StatusTimeline"
+import { Badge } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 const emptyForm = (): KycSubmit => ({
   full_name: "",

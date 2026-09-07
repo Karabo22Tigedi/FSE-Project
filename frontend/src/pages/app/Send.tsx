@@ -5,7 +5,7 @@ import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { Beneficiary, KycStatusOut, LimitStatus } from "../../api/types"
 import { errorDetail, formatZar } from "./format"
-import { staggerStyle } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 export function Send() {
   const navigate = useNavigate()

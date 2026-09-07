@@ -1,27 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { api, clearSession, getStoredUser, getToken, setSession } from "../api/client"
 import { ApiError } from "../api/types"
-import type { User } from "../api/types"
-
-interface AuthState {
-  user: User | null
-  ready: boolean
-  login: (email: string, password: string) => Promise<User>
-  logout: () => Promise<void>
-  refresh: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthState | null>(null)
+import { AuthContext } from "./state"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(getStoredUser)
-  const [ready, setReady] = useState(false)
+  const [user, setUser] = useState(getStoredUser)
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
       setUser(null)
-      setReady(true)
       return
     }
     try {
@@ -33,14 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearSession()
         setUser(null)
       }
-    } finally {
-      setReady(true)
     }
   }, [])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password)
@@ -60,15 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, ready, login, logout, refresh }),
-    [user, ready, login, logout, refresh],
+    () => ({ user, ready: true, login, logout, refresh }),
+    [user, login, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider")
-  return ctx
 }

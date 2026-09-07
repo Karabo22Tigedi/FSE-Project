@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { api } from "../../api/client"
 import type { Remittance } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail, formatRlusd, formatZar, remittanceLabel } from "../app/format"
 import { Badge } from "../app/StatusTimeline"
 import { formatOptionalDate, methodLabel, staggerStyle } from "../app/walletFormat"

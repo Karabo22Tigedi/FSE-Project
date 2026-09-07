@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { keepOutsidePhone } from "./keepOutside"
 import { addStudioLights, makeCoin, makePacket, makePhone } from "./meshes"
 import { disposeObject, startThreeLoop } from "./threeCanvas"
 
@@ -35,16 +36,24 @@ export function RequestsScene() {
 
         return {
           update: (t) => {
-            phone.rotation.y = -0.42 + Math.sin(t * 0.4) * 0.12
-            phone.position.y = -0.15 + Math.sin(t * 0.7) * 0.06
+            phone.rotation.x = -0.18 + Math.sin(t * 0.55) * 0.1
+            phone.rotation.y = -0.42 + Math.sin(t * 0.45) * 0.35
+            phone.rotation.z = 0.08 + Math.cos(t * 0.4) * 0.08
+            phone.position.y = -0.15 + Math.sin(t * 0.8) * 0.16
             coin.rotation.x = t * 0.9
             coin.rotation.y = t * 0.5
-            coin.position.y = 0.55 + Math.sin(t * 1.1) * 0.18
+            coin.position.set(1.15, 0.55 + Math.sin(t * 1.1) * 0.18, 0.75)
             for (const item of packets) {
               const a = t * 0.85 + item.phase
-              item.packet.position.set(Math.cos(a) * 1.35, Math.sin(a * 1.4) * 0.7, Math.sin(a) * 1.1)
+              item.packet.position.set(
+                1.2 + Math.cos(a) * 0.55,
+                0.4 + Math.sin(a * 1.4) * 0.4,
+                0.75 + Math.sin(a) * 0.4,
+              )
               item.packet.rotation.set(a, a * 0.6, a * 0.3)
             }
+            keepOutsidePhone(phone, coin)
+            for (const item of packets) keepOutsidePhone(phone, item.packet)
           },
           dispose: () => {
             disposeObject(phone)

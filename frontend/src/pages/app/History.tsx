@@ -3,7 +3,8 @@ import { Link } from "react-router-dom"
 import { api } from "../../api/client"
 import type { Beneficiary, Remittance } from "../../api/types"
 import { errorDetail, formatDateTime, formatZar, isExpired } from "./format"
-import { RemittanceBadge, staggerStyle } from "./StatusTimeline"
+import { RemittanceBadge } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 export function History() {
   const [rows, setRows] = useState<Remittance[]>([])

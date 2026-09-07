@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { PlatformWalletStatus } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail } from "../app/format"
 import { staggerStyle } from "../app/walletFormat"
 

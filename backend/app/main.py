@@ -18,6 +18,8 @@ def run_migrations() -> None:
     """
     from alembic import command
     from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import text
 
     from app.config import get_settings
 
@@ -25,6 +27,18 @@ def run_migrations() -> None:
     cfg = Config(str(backend_dir / "alembic.ini"))
     cfg.set_main_option("script_location", (backend_dir / "alembic").as_posix())
     cfg.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+    # SQLite on OneDrive can block Alembic's upgrade lock even when the
+    # schema is already current. Skip the lock if we are already at head.
+    try:
+        script = ScriptDirectory.from_config(cfg)
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+        if row is not None and row[0] == script.get_current_head():
+            return
+    except Exception:
+        pass
+
     command.upgrade(cfg, "head")
 
 

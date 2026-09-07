@@ -2,9 +2,10 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { api } from "../../api/client"
 import type { KycStatusOut, LimitStatus, User } from "../../api/types"
-import { useAuth } from "../../auth/AuthContext"
+import { useAuth } from "../../auth/useAuth"
 import { errorDetail, formatZar, kycLabel } from "./format"
-import { Badge, staggerStyle } from "./StatusTimeline"
+import { Badge } from "./StatusTimeline"
+import { staggerStyle } from "./walletFormat"
 
 export function Home() {
   const { user: sessionUser } = useAuth()

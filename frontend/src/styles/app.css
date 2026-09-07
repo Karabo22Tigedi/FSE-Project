@@ -6,11 +6,6 @@
   color: var(--gray--100);
 }
 
-.app-shell > :not(.grid-trail) {
-  position: relative;
-  z-index: 1;
-}
-
 .app-side {
   position: fixed;
   top: 5.5rem;
@@ -33,6 +28,8 @@
 }
 
 .app-main {
+  position: relative;
+  z-index: 1;
   padding: 8rem 8.33% 4rem 18%;
 }
 

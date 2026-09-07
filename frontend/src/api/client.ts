@@ -21,7 +21,13 @@ import type { CashInMethod } from "./types"
 const TOKEN_KEY = "xrpl_token"
 const USER_KEY = "xrpl_user"
 
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000"
+const envApiUrl = import.meta.env.VITE_API_URL
+export const API_URL =
+  envApiUrl === undefined || envApiUrl === ""
+    ? import.meta.env.DEV
+      ? "http://127.0.0.1:8000"
+      : ""
+    : envApiUrl
 
 export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY)

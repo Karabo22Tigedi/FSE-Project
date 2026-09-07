@@ -115,6 +115,8 @@ npm run dev
 
 Open http://localhost:5173. Point `VITE_API_URL` at the API if it is not `http://127.0.0.1:8000`.
 
+Optional public URL (WhatsApp): `render.yaml` + `deploy/` host the UI and API on one Render link. Not required for the course. Delete those two and the Render services if the lecturer does not want hosting.
+
 ## Performance numbers
 
 [`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is deliverable iv. HTTP load was **re-run on this fork on 2026-09-07** (50 users, 60 s, Windows): 2,218 requests, 0 failures, **37.2 req/s**, login median **850 ms** (bcrypt). Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html). Live XRPL settlement on the same day: five Testnet Payments, **5/5**, **17.5 s/tx** avg (enqueue **29.2 msg/s** on this host).

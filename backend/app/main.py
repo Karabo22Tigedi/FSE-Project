@@ -5,13 +5,15 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
 from app.models import *  # noqa: F401,F403 - register models before migrations
 from app.schemas.base import serialize_utc_datetime
-from app.services.bootstrap import seed_defaults
+from app.services.bootstrap import seed_admin_if_configured, seed_defaults
 
 # SQLite returns naive datetimes; treat them as UTC in jsonable_encoder paths too.
 ENCODERS_BY_TYPE[datetime] = serialize_utc_datetime
@@ -58,6 +60,20 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_defaults(db)
+        seed_admin_if_configured(db)
+        if get_settings().setup_platform_wallet:
+            try:
+                from app.services.platform_wallet import (
+                    establish_trustline,
+                    get_or_create_platform_wallet,
+                )
+
+                wallet = get_or_create_platform_wallet(db)
+                if not wallet.trustline_established:
+                    establish_trustline(db, wallet)
+                print(f"Platform wallet address: {wallet.classic_address}")
+            except Exception as exc:
+                print(f"Platform wallet setup skipped: {exc}")
     finally:
         db.close()
     yield
@@ -80,3 +96,34 @@ def health():
 
 
 app.include_router(api_router)
+
+
+def _mount_frontend() -> None:
+    dist_value = get_settings().frontend_dist.strip()
+    if not dist_value:
+        return
+    dist = Path(dist_value)
+    index = dist / "index.html"
+    if not index.is_file():
+        return
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="frontend-assets")
+
+    @app.get("/")
+    def spa_index():
+        return FileResponse(index)
+
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        candidate = (dist / full_path).resolve()
+        try:
+            candidate.relative_to(dist.resolve())
+        except ValueError:
+            return FileResponse(index)
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(index)
+
+
+_mount_frontend()

@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     # separate DB number so they never collide with dev/demo data.
     redis_url: str = "redis://localhost:6379/0"
 
+    # Optional public host (Render). Empty means local Vite + FastAPI.
+    # Same-origin UI is served from this folder when it exists.
+    frontend_dist: str = ""
+    admin_email: str = ""
+    admin_full_name: str = "Group 3 Admin"
+    admin_mobile_number: str = "+27000000000"
+    admin_password: str = ""
+    setup_platform_wallet: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

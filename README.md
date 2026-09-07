@@ -1,6 +1,6 @@
 # XRPL-Based FX Remittance Platform (RLUSD)
 
-UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte).
+UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte, Liltha Mzamo, Nikola Milosavljevic).
 
 This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances). **113** pytest tests passed on this tree.
 

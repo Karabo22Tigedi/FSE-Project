@@ -9,13 +9,14 @@ COPY frontend/ ./
 ENV VITE_API_URL=""
 RUN npm run build
 
-FROM python:3.13-slim-bookworm
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FRONTEND_DIST=/app/frontend_dist
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 COPY --from=frontend /frontend/dist /app/frontend_dist
 RUN mkdir -p /app/data

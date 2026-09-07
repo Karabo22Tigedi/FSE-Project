@@ -1,7 +1,14 @@
 .app-shell {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
-  background: var(--black);
+  background: rgb(31, 31, 31);
   color: var(--gray--100);
+}
+
+.app-shell > :not(.grid-trail) {
+  position: relative;
+  z-index: 1;
 }
 
 .app-side {

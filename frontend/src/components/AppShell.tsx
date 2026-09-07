@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Link, Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "../auth/useAuth"
+import { GridTrail } from "../fx/GridTrail"
 import { Nav } from "./Nav"
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   return (
     <div className="app-shell">
+      <GridTrail />
       <Nav />
       <aside className="app-side">
         <Link to="/app">Home</Link>

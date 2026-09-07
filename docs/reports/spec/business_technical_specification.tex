@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 \input{../preamble.tex}
 \usepackage{amsmath}
+\usepackage{float}
 
 \begin{document}
 \emergencystretch=3em
@@ -263,8 +264,13 @@ The API is JSON over HTTP with Bearer sessions. FastAPI emits Swagger UI at \url
 Authz in short: customers act on their own resources; KYC-approved customers create quotes, beneficiaries, cash-in, and cash-outs; admins review KYC, confirm cash-in, run and retry settlement, action cash-outs, and edit fees and tiers. Tracking is visible to the sender, the linked recipient, or an admin (403 otherwise; 404 if the ref does not exist).
 
 \section{Security}
-Passwords are bcrypt via passlib and never stored in plaintext. Login returns a urlsafe bearer token once; the database stores only \texttt{SHA-256} of that token. Logout sets \texttt{revoked\_at}. Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
+Passwords are bcrypt via passlib and never stored in plaintext. Login returns a urlsafe bearer token once; the database stores only \texttt{SHA-256} of that token. Logout sets \texttt{revoked\_at}. Opaque sessions were chosen over JWT because this is a single FastAPI process: logout must actually revoke access, which a signed JWT cannot do without a server-side denylist that looks like the sessions table anyway.
 
+Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
+
+CORS is a demo convenience for a future SPA, not an authentication mechanism. Production would restrict origins, put keys in a secrets manager, rotate Fernet keys with a dual-decrypt window, and stop using SQLite as the vault for encrypted seeds.
+
+\newpage
 \section{Regulatory considerations}
 This section is an understanding of the problem, not a legal opinion \citep{UCTBrief2026}. A Testnet IOU does not make the operator a licensed money transmitter, and it does not take the corridor outside FICA or SARB rules.
 
@@ -304,13 +310,14 @@ We cite Kerry-Lynn Whyte's Locust and settlement timings as a \textbf{baseline},
 
 The HTTP mix (50 concurrent synthetic users, 60~s, 2{,}324 requests, zero failures) delivered about 39~req/s. Read endpoints sat in the high-single-digit milliseconds at the median; \texttt{POST /remittances} about 11~ms median. \texttt{POST /auth/login} was the outlier at about 400~ms median because bcrypt is deliberately expensive. Redis Stream enqueue measured about 517 messages/s for 200 publishes. Five real Testnet Payments averaged about 12.4~s each---ledger close time, not application CPU. We have not repeated Locust on the patched worker (PEL reclaim, outbox, hashed sessions). Relative bottlenecks---bcrypt on login, consensus on settlement---are unchanged in kind.
 
+\newpage
 \section{Planned web UI}
 \label{sec:ui}
 The backend is API-complete; the brief still requires a web application \citep{UCTBrief2026}. This page is the screen map. The UI may be any SPA that speaks JSON (for example Vue on 5173 or React on 3000). CORS is already open for those origins. No framework is mandated here.
 
 Table~\ref{tab:ui} is the screen map. Empty states matter: unverified senders see KYC pending, not a send form; expired quotes show ``expired'' not a cash-in button; a recipient without a Testnet account yet still sees a zero spendable wallet row.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Planned screens mapped to existing endpoints (framework-agnostic).}
 \label{tab:ui}

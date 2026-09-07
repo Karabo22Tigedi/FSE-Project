@@ -1,5 +1,16 @@
 from decimal import Decimal
 
+from app.models.user import User
+from app.models.wallet import RecipientWallet
+from tests.conftest import TestingSessionLocal
+
+
+def _stub_cash_out_burn(monkeypatch, tx_hash="FAKE_BURN_TX"):
+    monkeypatch.setattr(
+        "app.api.routes.cash_out.submit_issued_currency_payment",
+        lambda *args, **kwargs: tx_hash,
+    )
+
 
 def test_request_cash_out_requires_approved_kyc(client, settle_a_remittance):
     """FR-09a: a recipient may hold RLUSD without KYC, but cannot cash out
@@ -101,8 +112,9 @@ def test_non_admin_cannot_action_cash_outs(client, settle_a_remittance, admin_he
     assert client.post(f"/cash-outs/{cash_out_id}/approve", headers=recipient_headers).status_code == 403
 
 
-def test_full_admin_lifecycle_approve_then_complete(client, settle_a_remittance, admin_headers):
-    """FR-32/FR-35: requested -> approved -> completed."""
+def test_full_admin_lifecycle_approve_then_complete(client, settle_a_remittance, admin_headers, monkeypatch):
+    """FR-32/FR-35: requested -> approved -> completed, burning UCTUSD."""
+    _stub_cash_out_burn(monkeypatch)
     recipient_headers, _sender_headers, settled = settle_a_remittance()
     _approve_recipient_kyc(client, admin_headers, recipient_headers, "recipient@example.com", "+27000000777")
     cash_out_id = client.post(
@@ -115,8 +127,10 @@ def test_full_admin_lifecycle_approve_then_complete(client, settle_a_remittance,
 
     complete_resp = client.post(f"/cash-outs/{cash_out_id}/complete", headers=admin_headers)
     assert complete_resp.status_code == 200
-    assert complete_resp.json()["status"] == "completed"
-    assert complete_resp.json()["completed_at"] is not None
+    body = complete_resp.json()
+    assert body["status"] == "completed"
+    assert body["completed_at"] is not None
+    assert body["xrpl_burn_tx_hash"] is not None
 
 
 def test_cannot_complete_before_approve(client, settle_a_remittance, admin_headers):
@@ -148,7 +162,8 @@ def test_fail_refunds_balance(client, settle_a_remittance, admin_headers):
     assert balance_after == balance_before
 
 
-def test_cannot_fail_completed_cash_out(client, settle_a_remittance, admin_headers):
+def test_cannot_fail_completed_cash_out(client, settle_a_remittance, admin_headers, monkeypatch):
+    _stub_cash_out_burn(monkeypatch)
     recipient_headers, _sender_headers, settled = settle_a_remittance()
     _approve_recipient_kyc(client, admin_headers, recipient_headers, "recipient@example.com", "+27000000777")
     cash_out_id = client.post(
@@ -159,6 +174,60 @@ def test_cannot_fail_completed_cash_out(client, settle_a_remittance, admin_heade
 
     resp = client.post(f"/cash-outs/{cash_out_id}/fail", headers=admin_headers)
     assert resp.status_code == 409
+
+
+def test_complete_with_payment_failure_stays_approved(client, settle_a_remittance, admin_headers, monkeypatch):
+    def fail_payment(*args, **kwargs):
+        raise RuntimeError("Payment failed: tecUNFUNDED_PAYMENT")
+
+    monkeypatch.setattr("app.api.routes.cash_out.submit_issued_currency_payment", fail_payment)
+
+    recipient_headers, _sender_headers, settled = settle_a_remittance()
+    _approve_recipient_kyc(client, admin_headers, recipient_headers, "recipient@example.com", "+27000000777")
+    cash_out_id = client.post(
+        "/cash-outs", json={"rlusd_amount": "5.000000", "fiat_currency": "USD"}, headers=recipient_headers
+    ).json()["id"]
+    client.post(f"/cash-outs/{cash_out_id}/approve", headers=admin_headers)
+
+    resp = client.post(f"/cash-outs/{cash_out_id}/complete", headers=admin_headers)
+    assert resp.status_code == 502
+    assert "Payment failed: tecUNFUNDED_PAYMENT" in resp.json()["detail"]
+
+    listed = client.get("/cash-outs", headers=admin_headers).json()
+    item = next(c for c in listed if c["id"] == cash_out_id)
+    assert item["status"] == "approved"
+    assert item["xrpl_burn_tx_hash"] is None
+
+
+def test_complete_without_xrpl_account_returns_422(client, settle_a_remittance, admin_headers):
+    recipient_headers, _sender_headers, settled = settle_a_remittance()
+    _approve_recipient_kyc(client, admin_headers, recipient_headers, "recipient@example.com", "+27000000777")
+    cash_out_id = client.post(
+        "/cash-outs", json={"rlusd_amount": "5.000000", "fiat_currency": "USD"}, headers=recipient_headers
+    ).json()["id"]
+    client.post(f"/cash-outs/{cash_out_id}/approve", headers=admin_headers)
+
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.email == "recipient@example.com").first()
+        wallet = db.query(RecipientWallet).filter(RecipientWallet.user_id == user.id).first()
+        wallet.xrpl_address = None
+        wallet.secret = None
+        wallet.trustline_established = False
+        db.add(wallet)
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.post(f"/cash-outs/{cash_out_id}/complete", headers=admin_headers)
+    assert resp.status_code == 422
+    assert "not provisioned" in resp.json()["detail"]
+    assert "TrustLine" in resp.json()["detail"]
+
+    listed = client.get("/cash-outs", headers=admin_headers).json()
+    item = next(c for c in listed if c["id"] == cash_out_id)
+    assert item["status"] == "approved"
+    assert item["xrpl_burn_tx_hash"] is None
 
 
 def test_recipient_sees_only_own_cash_outs(client, settle_a_remittance, admin_headers, register_and_login):

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
+from app.config import get_settings
 from app.core.deps import get_current_user, require_admin, require_approved_kyc
 from app.core.money import to_decimal
 from app.database import get_db
@@ -18,6 +19,7 @@ from app.services.cash_out import (
     try_debit_spendable,
 )
 from app.services.recipient_wallet import get_or_create_wallet_row
+from app.services.xrpl_provisioning import submit_issued_currency_payment
 
 router = APIRouter(prefix="/cash-outs", tags=["cash-out"])
 
@@ -120,15 +122,41 @@ def approve_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db:
 
 @router.post("/{cash_out_id}/complete", response_model=CashOutOut)
 def complete_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db: DBSession = Depends(get_db)):
-    """FR-32/FR-35: approved -> completed. The cash-out itself is
-    simulated (per FR-32), so this is a status transition representing
-    the fiat payout having been delivered - no further RLUSD movement,
-    since it was already reserved out of the balance at request time."""
+    """FR-32/FR-35: approved -> completed. Fiat cash-out remains simulated;
+    completing burns the reserved UCTUSD on-chain by paying the issuer.
+    Spendable was already reserved out of the ledger at request time."""
     cash_out = db.query(CashOutRequest).filter(CashOutRequest.id == cash_out_id).first()
     if cash_out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cash-out request not found")
     if cash_out.status != CashOutStatus.APPROVED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only an approved cash-out can be completed")
+
+    wallet_row = db.query(RecipientWallet).filter(RecipientWallet.user_id == cash_out.user_id).first()
+    if (
+        wallet_row is None
+        or not wallet_row.xrpl_address
+        or not wallet_row.secret
+        or wallet_row.trustline_established is False
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The custodial wallet is not provisioned / has no TrustLine",
+        )
+
+    if not cash_out.xrpl_burn_tx_hash:
+        try:
+            tx_hash = submit_issued_currency_payment(
+                wallet_row.secret,
+                get_settings().xrpl_issuer_address,
+                cash_out.rlusd_amount,
+                remittance_id=cash_out.id,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+        cash_out.xrpl_burn_tx_hash = tx_hash
 
     cash_out.status = CashOutStatus.COMPLETED
     cash_out.completed_at = datetime.now(timezone.utc)
@@ -141,7 +169,7 @@ def complete_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db
 @router.post("/{cash_out_id}/fail", response_model=CashOutOut)
 def fail_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db: DBSession = Depends(get_db)):
     """FR-32/FR-35: requested or approved -> failed, refunding the
-    reserved RLUSD back to the recipient's balance."""
+    reserved UCTUSD back to the recipient's spendable balance."""
     cash_out = db.query(CashOutRequest).filter(CashOutRequest.id == cash_out_id).first()
     if cash_out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cash-out request not found")

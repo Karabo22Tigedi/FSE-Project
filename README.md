@@ -1,10 +1,10 @@
-# XRPL-Based FX Remittance Platform (RLUSD)
+# XRPL-Based FX Remittance Platform (UCTUSD on Testnet)
 
 UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte, Liltha Mzamo, Nikola Milosavljevic).
 
-This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances). **113** pytest tests passed on this tree.
+This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances, UCTUSD burn). **128** pytest tests passed on this tree.
 
-Academic prototype only: simulated ZAR cash-in, RLUSD/UCTUSD settlement on the XRP Ledger **Testnet**, simulated fiat cash-out. No real customer funds, no Mainnet credentials.
+Academic prototype only: simulated ZAR cash-in, UCTUSD settlement on the XRP Ledger **Testnet**, simulated fiat cash-out with on-chain burn to issuer. No real customer funds, no Mainnet credentials.
 
 ## Reports (deliverable i)
 
@@ -17,10 +17,10 @@ LaTeX sources live next to those PDFs. Kerry’s old `ASSUMPTIONS_AND_LIMITATION
 
 ## What we changed versus the sketch
 
-- **Alembic** `0001_initial` + `0002_quote_session` at runtime (startup runs `upgrade head`). Tests still `create_all` on in-memory SQLite.
+- **Alembic** `0001_initial` + `0002_quote_session` + `0003_cash_out_burn` at runtime (startup runs `upgrade head`). Tests still `create_all` on in-memory SQLite.
 - **Quotes:** 15-minute TTL, `POST /remittances/{id}/cancel`, tracking ref `MG` + 10 digits, `GET /remittances/track/{ref}`. Cancelled and expired quotes **do not** count toward limits. Sends whose fees consume the principal return **422**.
 - **Settlement:** Redis outbox `stream_entry_id`; ack only on `completed`/`failed`; PEL reclaim (Redis 6.2 `XAUTOCLAIM` or Redis 5 `XCLAIM`); retry pending/processing/failed; Payment memo = remittance id; no second pay if `xrpl_settlement_tx_hash` is set.
-- **Wallets:** persist XRPL address **before** TrustSet. `GET /wallet/me` exposes `balance_rlusd` = spendable, plus `spendable_balance` and `on_chain_balance` (spendable + non-failed cash-outs). Simulated cash-out does not burn on-chain tokens.
+- **Wallets:** persist XRPL address **before** TrustSet. `GET /wallet/me` exposes `balance_rlusd` = spendable, plus `spendable_balance` and `on_chain_balance` (spendable + requested/approved reservations only). Completing a cash-out burns UCTUSD (Payment to the issuer).
 - **Sessions:** bcrypt passwords; SHA-256 `token_hash` at rest (raw token returned once at login).
 - **Crypto:** bad Fernet ciphertext raises rather than returning empty; two keys (KYC vs XRPL).
 - **CORS** for localhost UI origins (5173 / 3000 / 8000).
@@ -70,6 +70,21 @@ Once per environment, platform Testnet wallet (prints the **address** only):
 python -m scripts.setup_platform_wallet
 ```
 
+Send the printed address to Marc for a **100,000 UCTUSD** grant. Use the official course token only — do **not** run token setup to mint your own.
+
+### Token details
+
+| | |
+|---|---|
+| Symbol | UCTUSD |
+| Currency | `5543545553440000000000000000000000000000` |
+| Issuer | `rELez4x4Zqv3KYqboYVfrYPF8521Ycbxa5` |
+| Distributor | `rsWPX7FKwnfk6enosumAzEuTs5Y12Steq4` |
+| Explorer | https://testnet.xrpl.org/token/5543545553440000000000000000000000000000.rELez4x4Zqv3KYqboYVfrYPF8521Ycbxa5 |
+| Source | https://github.com/marclevin/UCTUSD |
+
+Both platform and customer wallets need a TrustLine before Payment. Burn = send UCTUSD to the issuer. The official RLUSD faucet is 10 / 24h; use UCTUSD until Marc says migrate.
+
 Settlement worker (or `POST /admin/settlement/run` while logged in as admin):
 
 ```powershell
@@ -87,6 +102,18 @@ cd backend
 .\.venv\Scripts\Activate.ps1
 python -m pytest -q
 ```
+
+## Web UI
+
+React + Vite in [`frontend/`](frontend/). CORS already allows `http://localhost:5173`.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. Point `VITE_API_URL` at the API if it is not `http://127.0.0.1:8000`.
 
 ## Performance numbers
 

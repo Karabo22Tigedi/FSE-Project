@@ -26,3 +26,4 @@ class CashOutOut(BaseModel):
     created_at: datetime
     actioned_at: datetime | None
     completed_at: datetime | None
+    xrpl_burn_tx_hash: str | None

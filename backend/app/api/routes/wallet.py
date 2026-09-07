@@ -22,12 +22,12 @@ _VISIBLE_INCOMING_STATUSES = [
     RemittanceStatus.SETTLEMENT_FAILED,
 ]
 
-# Simulated cash-out does not burn on-chain tokens; these statuses remain
-# reserved against the chain view even after spendable is debited.
+# Requested and approved cash-outs remain reserved on-chain after spendable
+# is debited. Completing a cash-out burns UCTUSD by paying the issuer, so
+# completed amounts are excluded from the chain view.
 _ON_CHAIN_CASHOUT_STATUSES = (
     CashOutStatus.REQUESTED,
     CashOutStatus.APPROVED,
-    CashOutStatus.COMPLETED,
 )
 
 
@@ -47,7 +47,8 @@ def _on_chain_balance(db: DBSession, user_id: str, spendable: Decimal) -> Decima
 def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
     """FR-27/FR-28: the recipient's custodial wallet - available RLUSD
     balance, incoming transfers (with status/date/XRPL tx hash), and
-    cash-out history."""
+    cash-out history. Completing a cash-out burns UCTUSD by paying the
+    issuer; on_chain_balance then excludes that reserved amount."""
     wallet_row = get_or_create_wallet_row(db, current_user.id)
     spendable = to_decimal(wallet_row.balance)
 
@@ -71,6 +72,7 @@ def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession 
         spendable_balance=spendable,
         on_chain_balance=_on_chain_balance(db, current_user.id, spendable),
         xrpl_address=wallet_row.xrpl_address,
+        trustline_established=wallet_row.trustline_established,
         incoming_transfers=[
             IncomingTransferOut(
                 remittance_id=r.id,
@@ -91,6 +93,7 @@ def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession 
                 status=c.status.value,
                 created_at=c.created_at,
                 completed_at=c.completed_at,
+                xrpl_burn_tx_hash=c.xrpl_burn_tx_hash,
             )
             for c in cash_outs
         ],

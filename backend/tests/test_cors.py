@@ -14,6 +14,13 @@ def test_cors_allows_localhost_origin(client):
     assert resp.headers.get("access-control-allow-credentials") == "true"
 
 
+def test_cors_allows_loopback_vite_origin(client):
+    resp = client.get("/health", headers={"Origin": "http://127.0.0.1:5173"})
+    assert resp.status_code == 200
+    assert resp.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+    assert resp.headers.get("access-control-allow-credentials") == "true"
+
+
 def test_cors_preflight_options(client):
     resp = client.options(
         "/auth/login",

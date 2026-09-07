@@ -13,6 +13,7 @@ def test_wallet_starts_at_zero_balance(client, register_and_login):
     body = resp.json()
     assert Decimal(body["balance_rlusd"]) == Decimal("0")
     assert body["xrpl_address"] is None
+    assert body["trustline_established"] is False
     assert body["incoming_transfers"] == []
     assert body["cash_out_transactions"] == []
 
@@ -25,6 +26,7 @@ def test_wallet_shows_settled_incoming_transfer(client, settle_a_remittance):
     wallet = client.get("/wallet/me", headers=recipient_headers).json()
     assert Decimal(wallet["balance_rlusd"]) == Decimal(settled["rlusd_amount"])
     assert wallet["xrpl_address"] is not None
+    assert wallet["trustline_established"] is True
 
     assert len(wallet["incoming_transfers"]) == 1
     transfer = wallet["incoming_transfers"][0]
@@ -42,7 +44,7 @@ def test_wallet_hides_other_recipients_transfers(client, settle_a_remittance, re
     assert Decimal(other_wallet["balance_rlusd"]) == Decimal("0")
 
 
-def test_wallet_exposes_spendable_and_on_chain_after_cash_out(client, settle_a_remittance, admin_headers):
+def test_wallet_exposes_spendable_and_on_chain_after_cash_out(client, settle_a_remittance, admin_headers, monkeypatch):
     recipient_headers, _sender_headers, settled = settle_a_remittance()
     client.post(
         "/kyc",
@@ -80,3 +82,17 @@ def test_wallet_exposes_spendable_and_on_chain_after_cash_out(client, settle_a_r
     assert Decimal(after["balance_rlusd"]) == Decimal(after["spendable_balance"])
     assert Decimal(after["on_chain_balance"]) == settled_amount
     assert Decimal(after["on_chain_balance"]) > Decimal(after["spendable_balance"])
+
+    cash_out_id = resp.json()["id"]
+    monkeypatch.setattr(
+        "app.api.routes.cash_out.submit_issued_currency_payment",
+        lambda *args, **kwargs: "FAKE_BURN_TX",
+    )
+    assert client.post(f"/cash-outs/{cash_out_id}/approve", headers=admin_headers).status_code == 200
+    complete = client.post(f"/cash-outs/{cash_out_id}/complete", headers=admin_headers)
+    assert complete.status_code == 200
+
+    burned = client.get("/wallet/me", headers=recipient_headers).json()
+    assert Decimal(burned["on_chain_balance"]) == Decimal(burned["spendable_balance"])
+    assert Decimal(burned["spendable_balance"]) == Decimal(after["spendable_balance"])
+    assert burned["cash_out_transactions"][0]["xrpl_burn_tx_hash"] is not None

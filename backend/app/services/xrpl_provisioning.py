@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from xrpl.models.amounts import IssuedCurrencyAmount
+from xrpl.models.requests import AccountLines
 from xrpl.models.transactions import Memo, Payment, TrustSet
 from xrpl.transaction import submit_and_wait
 from xrpl.wallet import Wallet, generate_faucet_wallet
@@ -36,6 +37,36 @@ def establish_trustline(wallet: Wallet) -> str:
     if tx_result != "tesSUCCESS":
         raise RuntimeError(f"TrustSet failed: {tx_result}")
     return response.result["hash"]
+
+
+def get_issued_currency_balance(address: str) -> Decimal:
+    """Return this address's balance of the configured IOU (UCTUSD).
+
+    Queries account_lines and sums trust lines whose currency matches
+    ``settings.xrpl_currency_code`` and whose counterparty (``account``)
+    is ``settings.xrpl_issuer_address``. Returns Decimal("0") if no
+    matching line exists.
+    """
+    settings = get_settings()
+    client = get_xrpl_client()
+    total = Decimal("0")
+    marker = None
+    while True:
+        request_kwargs: dict = {"account": address}
+        if marker is not None:
+            request_kwargs["marker"] = marker
+        response = client.request(AccountLines(**request_kwargs))
+        result = response.result
+        for line in result.get("lines") or []:
+            if (
+                line.get("currency") == settings.xrpl_currency_code
+                and line.get("account") == settings.xrpl_issuer_address
+            ):
+                total += Decimal(str(line.get("balance", "0")))
+        marker = result.get("marker")
+        if marker is None:
+            break
+    return total
 
 
 def _payment_memos(remittance_id: str | None) -> list[Memo] | None:

@@ -96,7 +96,7 @@ Hash short-circuit; memo = remittance id; one credit commit \\
 Ack on take; no PEL reclaim &
 Ack on completed/failed; reclaim then new entries \\
 Wallet JSON = spendable only, called ``ledger'' &
-Spendable vs on-chain (non-failed cash-outs) \\
+Spendable vs on-chain (requested/approved reservations) \\
 \texttt{create\_all} never alters columns &
 Alembic 0001 then 0002 \\
 Bad Fernet key $\to$ empty field &
@@ -146,12 +146,12 @@ Copy-Item .env.example .env
 \begin{verbatim}
 python -m scripts.setup_platform_wallet
 \end{verbatim}
-  It prints the classic address only, never the secret. Send that address to the course liquidity contact if you need UCTUSD/RLUSD.
+  It prints the classic address only, never the secret. Send that address to Marc for a 100{,}000 UCTUSD grant (distributor \texttt{rsWPX7FKwnfk6enosumAzEuTs5Y12Steq4}). Do not mint a new token.
   \item Demo path in Swagger: register two customers, submit KYC, admin-approve both, add a beneficiary that matches the recipient, create a quote, cash-in, admin confirm-cash-in, then either
 \begin{verbatim}
 python -m scripts.run_settlement_worker
 \end{verbatim}
-  or \texttt{POST /admin/settlement/run}. Recipient \texttt{GET /wallet/me} should show the hash and spendable balance. Cash-out is a status workflow; it will not move tokens back on chain.
+  or \texttt{POST /admin/settlement/run}. Recipient \texttt{GET /wallet/me} should show the hash and spendable balance. Completing a cash-out burns reserved UCTUSD on-chain (Payment to the issuer).
   \item Tests (Redis must be up; XRPL is mocked):
 \begin{verbatim}
 python -m pytest -q
@@ -162,7 +162,7 @@ python -m pytest -q
 If settlement is stuck in pending or processing, retry that settlement id as admin. Do not retry completed. If Redis was down during enqueue, retry republishes the outbox row.
 
 \subsection{Ten-minute marking demo}
-With Redis up, keys set, admin created, and the platform wallet funded: (1)~register sender and recipient; (2)~both submit KYC; (3)~admin approves both; (4)~sender adds the recipient as a beneficiary (mobile/email match); (5)~post a quote under R3{,}000; (6)~show that cancel frees the limit, then create a fresh quote; (7)~cash-in, admin confirm; (8)~run the worker; (9)~recipient wallet shows spendable, hash, and on-chain; (10)~request cash-out, admin complete---spendable drops, on-chain stays higher by that amount; (11)~fail a second cash-out and show the refund. Optional: cancel is 409 after expiry; retry of completed is 409.
+With Redis up, keys set, admin created, and the platform wallet funded: (1)~register sender and recipient; (2)~both submit KYC; (3)~admin approves both; (4)~sender adds the recipient as a beneficiary (mobile/email match); (5)~post a quote under R3{,}000; (6)~show that cancel frees the limit, then create a fresh quote; (7)~cash-in, admin confirm; (8)~run the worker; (9)~recipient wallet shows spendable, hash, and on-chain; (10)~request cash-out, admin complete---spendable already dropped at request; complete burns on-chain so that balance drops too; (11)~fail a second cash-out and show the refund. Optional: cancel is 409 after expiry; retry of completed is 409.
 
 The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 113 passed.
 

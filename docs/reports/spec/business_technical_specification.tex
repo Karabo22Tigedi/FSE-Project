@@ -17,7 +17,7 @@ The World Bank's Remittance Prices Worldwide (RPW) survey is the standard public
 
 Cost is not the only friction. The IMF's diagnostic of the South Africa--Zimbabwe corridor describes cash-heavy, agent-based payouts, delays, and weak price transparency \citep{IMF2025SAZim}. FinMark Trust's 2024 assessment of South Africa to the rest of SADC likewise finds that cash collection and agent processes still dominate, and that customers often cannot see the full cost until they are already at the counter \citep{FinMark2024}. Western Union and MoneyGram solve a real problem---getting cash to someone without a bank account---but they do it with many intermediaries, posted-plus-spread pricing, and a payout model that is slow to digitise.
 
-Stablecoins such as RLUSD (a US-dollar token issued on the XRP Ledger) can move value between wallets in seconds once both sides hold the token. That does not magically replace the cash-in door in Johannesburg or the cash-out door in Harare. The brief is explicit: a prototype may \emph{simulate} those fiat legs \citep{UCTBrief2026}. Our platform therefore uses RLUSD (or the course UCTUSD fallback IOU) as the \emph{settlement} asset between a confirmed rand payment and a custodial recipient wallet. We do not claim that putting value on a ledger deletes the South African Reserve Bank, FICA, or a remittance licence.
+Stablecoins such as RLUSD (a US-dollar token issued on the XRP Ledger) can move value between wallets in seconds once both sides hold the token. That does not magically replace the cash-in door in Johannesburg or the cash-out door in Harare. The brief is explicit: a prototype may \emph{simulate} those fiat legs \citep{UCTBrief2026}. Our platform therefore uses UCTUSD (Marc's course IOU) as the current \emph{settlement} asset between a confirmed rand payment and a custodial recipient wallet; the API slot remains \texttt{rlusd\_amount} and can later point at official RLUSD via \texttt{.env} if funded. We do not claim that putting value on a ledger deletes the South African Reserve Bank, FICA, or a remittance licence.
 
 What we do claim, as a design, is narrower. A quoted fee of a fixed rand amount plus a percentage, plus a published FX margin on the conversion rate, is easier to audit than an opaque corridor tariff. A 15-minute quote with an explicit cancel path stops abandoned drafts from consuming a sender's daily limit. An on-chain Payment with a stored transaction hash gives the recipient something they can look up on a Testnet explorer. Those are the product bets this specification implements.
 
@@ -32,8 +32,8 @@ The journey follows the brief \citep{UCTBrief2026} and is implemented end-to-end
   \item The sender may cancel an unexpired quote (\texttt{POST /remittances/\{id\}/cancel}) or let it expire. Cancelled and expired quotes do not consume limits.
   \item The sender initiates simulated cash-in (agent cash, bank transfer, or card). An admin confirms receipt. Settlement is not queued before that confirmation.
   \item A Redis Streams worker submits an XRPL Testnet Payment from the platform treasury to the recipient's custodial account, stores the hash, and credits the internal spendable balance.
-  \item The recipient opens \texttt{GET /wallet/me}, sees spendable RLUSD, incoming transfers with hashes, and cash-out history.
-  \item The recipient requests a simulated cash-out to USD or ZAR. An admin approves, completes, or fails it. Failed cash-outs refund spendable balance. There is no reverse on-chain burn.
+  \item The recipient opens \texttt{GET /wallet/me}, sees spendable UCTUSD, incoming transfers with hashes, and cash-out history.
+  \item The recipient requests a cash-out to USD or ZAR. Fiat payout is still simulated, but complete submits a Payment of the reserved UCTUSD from the recipient custodial account to the official UCTUSD issuer (burn/redeem). \texttt{on\_chain\_balance} excludes completed cash-outs. Failed cash-outs refund spendable balance.
 \end{enumerate}
 
 Anyone with a tracking reference who is the sender, the linked recipient, or an admin can call \texttt{GET /remittances/track/\{ref\}}.
@@ -81,7 +81,8 @@ Redis Stream \texttt{settlement\_messages};
 (pending, processing, or failed; completed is 409). \\
 Custodial wallet &
 \texttt{GET /wallet/me}: \texttt{balance\_rlusd} = spendable;
-also \texttt{spendable\_balance} and \texttt{on\_chain\_balance}. \\
+also \texttt{spendable\_balance} and \texttt{on\_chain\_balance}
+(excludes completed cash-outs). \\
 Simulated cash-out &
 \texttt{POST /cash-outs}; \texttt{GET /cash-outs/me};
 admin list/approve/complete/fail. USD and ZAR only. \\
@@ -217,18 +218,18 @@ Figure~\ref{fig:flow} is the money path the brief asks for.
 \draw[arr] (pay) -- (wal);
 \draw[arr] (wal) -- (co);
 \end{tikzpicture}
-\caption{Settlement path: confirmed rand in, queued Payment, custodial RLUSD, simulated fiat out.}
+\caption{Settlement path: confirmed rand in, queued Payment, custodial UCTUSD, simulated fiat out.}
 \label{fig:flow}
 \end{figure}
 
 Wallet design is a hybrid of the brief's two options \citep{UCTBrief2026,UCTResources2026}. One \texttt{PlatformWallet} holds scarce IOU liquidity. Each recipient still receives a real custodial Testnet account, generated lazily on first settlement, so FR-style ``individually attributable Payment + hash'' is a genuine ledger transaction rather than a book entry that pretends to be one. Address and encrypted secret are committed \emph{before} TrustSet. If an address exists but the trust line is not yet established, the worker reuses the stored secret; it does not mint a second wallet.
 
-\section{Cash-in, RLUSD settlement, and cash-out}
+\section{Cash-in, UCTUSD settlement, and cash-out}
 
 \subsection{Cash-in}
 \texttt{POST /remittances/\{id\}/cash-in} is allowed only on an unexpired, non-cancelled \texttt{quoted} remittance. The sender chooses \texttt{agent\_cash}, \texttt{bank\_transfer}, or \texttt{card}. Status becomes \texttt{cash\_in\_pending}. Admin \texttt{confirm-cash-in} sets \texttt{cash\_in\_confirmed} and calls \texttt{enqueue\_settlement}. No Payment is submitted at this step. The cash movement itself is simulated: there is no card acquirer, no agent till, and no bank confirmation webhook.
 
-\subsection{RLUSD settlement}
+\subsection{UCTUSD settlement}
 Enqueue inserts at most one \texttt{SettlementMessage} per remittance (unique constraint) and \texttt{XADD}s to stream \texttt{settlement\_messages}. The Redis Stream ID is stored on \texttt{stream\_entry\_id}. If the database row exists but the stream ID is missing or the entry is gone, a later enqueue \emph{republishes}---that covers ``DB commit succeeded, Redis \texttt{XADD} failed''. Redis is transport; the database row is source of truth.
 
 The worker first reclaims its pending-entries list (\texttt{XREADGROUP} id \texttt{0}), then idle pending entries (\texttt{XAUTOCLAIM} on Redis~6.2+, else \texttt{XPENDING}+\texttt{XCLAIM}; local Memurai 5.0.14 has no \texttt{XAUTOCLAIM}), then new \texttt{>} entries. Entries are acknowledged only after the message is \texttt{completed} or \texttt{failed}. A crash mid-flight leaves the entry in the PEL for reclaim.
@@ -236,7 +237,7 @@ The worker first reclaims its pending-entries list (\texttt{XREADGROUP} id \text
 Before submitting a Payment, if \texttt{xrpl\_settlement\_tx\_hash} is already set, the worker marks completed and \textbf{does not pay or credit again}. On the success path the Payment memo carries the remittance id; the hash, recipient credit, \texttt{settled}, and \texttt{completed} are one database commit. Admin retry accepts \texttt{failed}, \texttt{processing}, and \texttt{pending} (reset to pending, republish). \texttt{completed} returns 409.
 
 \subsection{Cash-out}
-The recipient must have approved KYC to cash out but may hold RLUSD without it. Spendable \texttt{RecipientWallet.balance} is debited atomically at request time (\texttt{UPDATE \ldots WHERE balance >= :amt}). \texttt{GET /wallet/me} reports \texttt{balance\_rlusd} and \texttt{spendable\_balance} as that spendable figure. \texttt{on\_chain\_balance} is spendable plus cash-out amounts in \texttt{requested}, \texttt{approved}, or \texttt{completed} (failed cash-outs are excluded). Simulated cash-out does not burn tokens on the ledger, so after a request spendable drops while on-chain stays higher by the reserved amount. A failed cash-out refunds spendable. Completion is a status transition, not a second XRPL Payment back to treasury.
+The recipient must have approved KYC to cash out but may hold UCTUSD without it. Spendable \texttt{RecipientWallet.balance} is debited atomically at request time (\texttt{UPDATE \ldots WHERE balance >= :amt}). \texttt{GET /wallet/me} reports \texttt{balance\_rlusd} and \texttt{spendable\_balance} as that spendable figure (the slot is currently UCTUSD; official RLUSD later via \texttt{.env} if funded). \texttt{on\_chain\_balance} is spendable plus cash-out amounts in \texttt{requested} or \texttt{approved} only; it excludes completed cash-outs. Fiat payout is still simulated, but complete submits a Payment of the reserved UCTUSD from the recipient custodial account to the official UCTUSD issuer (burn/redeem). After a request, spendable drops while on-chain stays higher by the reserved amount until complete, when the on-chain figure drops too. A failed cash-out refunds spendable.
 
 \section{Database}
 Runtime schema is Alembic, not \texttt{create\_all} alone. FastAPI lifespan runs \texttt{alembic upgrade head} then seeds default fees and limit tiers. Tests still use in-memory \texttt{create\_all}. Main tables:
@@ -297,7 +298,7 @@ Assumptions we adopted on purpose: one customer identity for send and receive; a
 Remaining limitations of \emph{this} fork, not of the old sketch:
 \begin{itemize}
   \item SQLite's single-writer model is not a production remittance ledger.
-  \item Cash-in and cash-out are simulated; there is no reverse on-chain cash-out.
+  \item Cash-in and fiat cash-out are simulated; complete still burns reserved UCTUSD on-chain by paying the issuer.
   \item Automated tests mock XRPL (faucet, TrustSet, Payment). Redis is real (DB~15).
   \item Redis is required at runtime and in pytest.
   \item Login latency is dominated by bcrypt (see Section~\ref{sec:perf}).

@@ -111,6 +111,53 @@ def test_settlement_without_platform_wallet_fails_gracefully(client, approved_se
     assert "Platform wallet is not set up" in results[0]["failure_reason"]
 
 
+def test_settlement_fails_when_platform_trustline_missing(client, approved_sender, admin_headers, mock_xrpl):
+    """A platform wallet without a TrustLine to the UCTUSD issuer cannot settle."""
+    from app.models.platform_wallet import PlatformWallet
+    from tests.conftest import TestingSessionLocal
+
+    db = TestingSessionLocal()
+    try:
+        db.add(
+            PlatformWallet(
+                classic_address="rFAKEPLATFORM0000000000000000000",
+                secret="sFAKEPLATFORMSECRET",
+                trustline_established=False,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    sender_headers = approved_sender()
+    remittance_id = _linked_beneficiary_and_quote(client, sender_headers, "r9@example.com", "+27000000709")
+    _confirmed_remittance(client, sender_headers, admin_headers, remittance_id)
+
+    run_resp = client.post("/admin/settlement/run", headers=admin_headers)
+    results = run_resp.json()
+    assert results[0]["status"] == "failed"
+    assert "TrustLine" in results[0]["failure_reason"]
+
+
+def test_settlement_fails_when_platform_iou_balance_insufficient(
+    client, approved_sender, admin_headers, platform_wallet_row, mock_xrpl
+):
+    """Zero on-chain UCTUSD must fail before Payment and point the operator
+    at Marc / the distributor for the 100,000 grant."""
+    mock_xrpl["iou_balance"] = 0
+    sender_headers = approved_sender()
+    remittance_id = _linked_beneficiary_and_quote(client, sender_headers, "r10@example.com", "+27000000710")
+    _confirmed_remittance(client, sender_headers, admin_headers, remittance_id)
+
+    run_resp = client.post("/admin/settlement/run", headers=admin_headers)
+    results = run_resp.json()
+    assert results[0]["status"] == "failed"
+    reason = results[0]["failure_reason"]
+    assert "100,000" in reason
+    assert "distributor" in reason.lower()
+    assert platform_wallet_row.classic_address in reason
+
+
 def test_processing_completed_message_again_does_not_double_credit(
     client, approved_sender, admin_headers, platform_wallet_row, mock_xrpl
 ):

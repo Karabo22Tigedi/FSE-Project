@@ -27,9 +27,10 @@ class RecipientWallet(Base):
     `balance` is the **spendable** internal ledger. The settlement worker
     credits it (`recipient_wallet_row.balance += remittance.rlusd_amount`)
     and cash-out atomically debits it. It is not a live XRPL balance:
-    requested/approved/completed cash-outs still represent tokens that
-    remain on-chain (simulated cash-out does not burn). GET /wallet/me
-    reports on_chain_balance as spendable plus those outstanding amounts.
+    requested/approved cash-outs still represent tokens reserved on-chain.
+    Admin complete burns UCTUSD by paying the issuer; completed amounts
+    are no longer included in on_chain_balance. GET /wallet/me reports
+    on_chain_balance as spendable plus those outstanding reserved amounts.
     """
 
     __tablename__ = "recipient_wallets"

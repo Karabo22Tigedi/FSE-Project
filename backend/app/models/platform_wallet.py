@@ -13,15 +13,13 @@ def _uuid() -> str:
 
 
 class PlatformWallet(Base):
-    """FR-27/FR-29 infrastructure: the single custodial XRPL Testnet wallet
-    the platform holds RLUSD/UCTUSD in.
+    """FR-27/FR-29 infrastructure: the single treasury XRPL Testnet wallet
+    that holds official UCTUSD for settlement Payments.
 
-    The project brief offers a choice between a separate on-chain account per
-    recipient or one platform wallet with per-customer balances tracked
-    internally. This project uses the pooled model - only one row should
-    ever exist here, and per-recipient "wallets" (see RecipientWallet) are
-    internal ledger balances backed by this account's on-chain holdings,
-    not separate XRPL accounts.
+    Hybrid custody: this one row is the platform treasury. Recipients still
+    get their own Testnet accounts (see RecipientWallet) on first
+    settlement. Marc funds this address with 100,000 UCTUSD after the
+    TrustLine is live.
 
     The secret is encrypted with a key distinct from the KYC encryption
     key (NFR-04/NFR-05) and is only ever decrypted by the signing

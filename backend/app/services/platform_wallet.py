@@ -1,10 +1,15 @@
+from decimal import Decimal
+
 from sqlalchemy.orm import Session as DBSession
 from xrpl.account import get_balance
 
 from app.models.platform_wallet import PlatformWallet
 from app.services.xrpl_client import get_xrpl_client
-from app.services.xrpl_provisioning import establish_trustline as _establish_trustline
-from app.services.xrpl_provisioning import generate_and_fund_wallet
+from app.services.xrpl_provisioning import (
+    establish_trustline as _establish_trustline,
+    generate_and_fund_wallet,
+    get_issued_currency_balance,
+)
 
 
 def get_platform_wallet_row(db: DBSession) -> PlatformWallet | None:
@@ -58,3 +63,8 @@ def establish_trustline(db: DBSession, wallet_row: PlatformWallet) -> str:
 def get_xrp_balance(wallet_row: PlatformWallet) -> str:
     client = get_xrpl_client()
     return get_balance(wallet_row.classic_address, client)
+
+
+def get_uctusd_balance(wallet_row: PlatformWallet) -> Decimal:
+    """On-chain UCTUSD IOU balance for this platform wallet vs the issuer."""
+    return get_issued_currency_balance(wallet_row.classic_address)

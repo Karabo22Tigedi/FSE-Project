@@ -195,6 +195,7 @@ def mock_xrpl(monkeypatch):
     exercising FR-24's failure path with a controlled, repeatable error.
     """
     import itertools
+    from decimal import Decimal
     from types import SimpleNamespace
 
     counter = itertools.count(1)
@@ -211,6 +212,7 @@ def mock_xrpl(monkeypatch):
         "fail_reason": "tecUNFUNDED_PAYMENT",
         "payments": {},
         "submit_count": 0,
+        "iou_balance": Decimal("100000"),
     }
 
     def fake_submit_payment(from_seed, destination_address, amount, remittance_id=None, *args, **kwargs):
@@ -226,9 +228,18 @@ def mock_xrpl(monkeypatch):
             return tx_hash
         return f"FAKE_PAYMENT_TX_{destination_address}_{amount}"
 
+    def fake_get_issued_currency_balance(address):
+        return Decimal(state["iou_balance"])
+
     monkeypatch.setattr("app.services.recipient_wallet.generate_and_fund_wallet", fake_generate_and_fund_wallet)
     monkeypatch.setattr("app.services.recipient_wallet.establish_trustline", fake_establish_trustline)
     monkeypatch.setattr("app.services.settlement.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.services.xrpl_provisioning.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.services.settlement.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.services.xrpl_provisioning.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.services.platform_wallet.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.api.routes.cash_out.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.api.routes.platform_wallet.get_issued_currency_balance", fake_get_issued_currency_balance)
 
     return state
 

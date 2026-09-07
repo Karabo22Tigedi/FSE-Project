@@ -7,6 +7,7 @@ from app.api.routes import (
     cash_out,
     kyc,
     limits,
+    platform_wallet,
     remittances,
     settlement,
     users,
@@ -21,6 +22,7 @@ api_router.include_router(beneficiaries.router)
 api_router.include_router(remittances.router)
 api_router.include_router(limits.router)
 api_router.include_router(admin_config.router)
+api_router.include_router(platform_wallet.router)
 api_router.include_router(settlement.router)
 api_router.include_router(wallet.router)
 api_router.include_router(cash_out.router)

@@ -3,13 +3,14 @@ from datetime import datetime, timezone
 import redis
 from sqlalchemy.orm import Session as DBSession
 
+from app.config import get_settings
 from app.core.money import to_decimal
 from app.models.remittance import Remittance, RemittanceStatus
 from app.models.settlement import SettlementMessage, SettlementMessageStatus
 from app.services.platform_wallet import get_platform_wallet_row
 from app.services.recipient_wallet import ensure_xrpl_account, get_or_create_wallet_row
 from app.services.redis_client import get_redis_client
-from app.services.xrpl_provisioning import submit_issued_currency_payment
+from app.services.xrpl_provisioning import get_issued_currency_balance, submit_issued_currency_payment
 
 # FR-21/22: the settlement queue, as a Redis Stream (basics.pdf recommends
 # RabbitMQ/Redis Streams over a DB-polling table). Entries just carry a
@@ -171,6 +172,24 @@ def process_settlement_message(db: DBSession, message: SettlementMessage) -> Set
         platform_wallet_row = get_platform_wallet_row(db)
         if platform_wallet_row is None:
             raise RuntimeError("Platform wallet is not set up")
+
+        if not platform_wallet_row.trustline_established:
+            raise RuntimeError(
+                "Platform wallet has no TrustLine to the UCTUSD issuer. "
+                "Run scripts/setup_platform_wallet.py before settling."
+            )
+
+        iou_balance = get_issued_currency_balance(platform_wallet_row.classic_address)
+        required = to_decimal(remittance.rlusd_amount)
+        if iou_balance < required:
+            settings = get_settings()
+            raise RuntimeError(
+                f"Insufficient UCTUSD liquidity on platform wallet "
+                f"{platform_wallet_row.classic_address}: current balance {iou_balance}, "
+                f"required {required}. Send this address to Marc / the UCTUSD "
+                f"distributor ({settings.xrpl_distributor_address}) for the "
+                f"100,000 UCTUSD grant."
+            )
 
         recipient_wallet_row = get_or_create_wallet_row(db, beneficiary.linked_user_id)
         recipient_wallet_row = ensure_xrpl_account(db, recipient_wallet_row)

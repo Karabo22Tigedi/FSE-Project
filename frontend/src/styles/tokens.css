@@ -1,0 +1,154 @@
+:root {
+  --white: #ffffff;
+  --gray--100: #f1f1f1;
+  --gray--50: #f1f1f180;
+  --blue: #2c71f6;
+  --black: #151515;
+  --gray--light: #fafafa;
+  --dark-gray: #595959;
+  --teal-underline: #3de0c4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--blue);
+  color: var(--gray--100);
+  font-family: Poppins, sans-serif;
+  font-size: 0.9em;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.nav {
+  z-index: 9998;
+  background-color: #0000;
+  padding-top: 2rem;
+  padding-left: 4.2%;
+  padding-right: 4.2%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav__logo {
+  color: var(--white);
+  font-family: Poppins, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  width: 3.5rem;
+  white-space: nowrap;
+}
+
+.nav--on-light .nav__logo,
+.nav--on-light .nav__link {
+  color: var(--black);
+}
+
+.nav--on-light .nav__link:hover {
+  color: var(--dark-gray);
+}
+
+.nav__menu {
+  align-items: center;
+  display: flex;
+  position: static;
+}
+
+.nav__link {
+  color: var(--gray--100);
+  padding: 0.1em 0.55em;
+  font-family: Poppins, sans-serif;
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 1.6em;
+  position: relative;
+}
+
+.nav__link:hover {
+  color: var(--gray--50);
+}
+
+.nav__button {
+  background-color: var(--blue);
+  color: var(--white);
+  border: 0;
+  border-radius: 3em;
+  margin-left: 0.65em;
+  padding: 0 0.85em;
+  font-family: Poppins, sans-serif;
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 2.2em;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background-color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preloader__text {
+  color: var(--white);
+  font-family: Poppins, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.pill {
+  background-color: var(--blue);
+  color: var(--white);
+  border: 0;
+  border-radius: 3em;
+  padding: 0 0.85em;
+  font-family: Poppins, sans-serif;
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 2.2em;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pill--ghost {
+  background: transparent;
+  color: var(--gray--100);
+  box-shadow: inset 0 0 0 1px var(--gray--50);
+}

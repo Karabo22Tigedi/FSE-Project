@@ -117,4 +117,4 @@ Open http://localhost:5173. Point `VITE_API_URL` at the API if it is not `http:/
 
 ## Performance numbers
 
-[`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is deliverable iv. HTTP load was **re-run on this fork on 2026-09-07** (50 users, 60 s, Windows): 2,218 requests, 0 failures, **37.2 req/s**, login median **850 ms** (bcrypt). Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html). Live XRPL settlement timings remain the **2026-09-01 Testnet sample** (12.4 s/tx); that path was not repeated against the demo treasury.
+[`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is deliverable iv. HTTP load was **re-run on this fork on 2026-09-07** (50 users, 60 s, Windows): 2,218 requests, 0 failures, **37.2 req/s**, login median **850 ms** (bcrypt). Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html). Live XRPL settlement on the same day: five Testnet Payments, **5/5**, **17.5 s/tx** avg (enqueue **29.2 msg/s** on this host).

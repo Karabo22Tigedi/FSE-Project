@@ -244,7 +244,41 @@ Before submitting a Payment, if \texttt{xrpl\_settlement\_tx\_hash} is already s
 The recipient must have approved KYC to cash out but may hold UCTUSD without it. Spendable \texttt{RecipientWallet.balance} is debited atomically at request time (\texttt{UPDATE \ldots WHERE balance >= :amt}). \texttt{GET /wallet/me} reports \texttt{balance\_rlusd} and \texttt{spendable\_balance} as that spendable figure (the slot is currently UCTUSD; official RLUSD later via \texttt{.env} if funded). \texttt{on\_chain\_balance} is spendable plus cash-out amounts in \texttt{requested} or \texttt{approved} only; it excludes completed cash-outs. Fiat payout is still simulated, but complete submits a Payment of the reserved UCTUSD from the recipient custodial account to the official UCTUSD issuer (burn/redeem). After a request, spendable drops while on-chain stays higher by the reserved amount until complete, when the on-chain figure drops too. A failed cash-out refunds spendable.
 
 \section{Database}
-Runtime schema is Alembic, not \texttt{create\_all} alone. FastAPI lifespan runs \texttt{alembic upgrade head} then seeds default fees and limit tiers. Tests still use in-memory \texttt{create\_all}. Main tables:
+Runtime schema is Alembic, not \texttt{create\_all} alone. FastAPI lifespan runs \texttt{alembic upgrade head} then seeds default fees and limit tiers. Tests still use in-memory \texttt{create\_all}. Figure~\ref{fig:er} is the entity--relationship view; the list below is the column notes.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  x=2.42cm, y=1.22cm,
+  ent/.style={draw, rounded corners=1pt, align=center, inner sep=2.4pt, minimum height=0.70cm, minimum width=2.22cm},
+  arr/.style={-{Latex}, semithick},
+  lab/.style={font=\tiny, inner sep=1pt, fill=white}
+]
+\node[ent] (sess) at (0,3.2) {sessions};
+\node[ent] (kyc) at (2,3.2) {kyc\_applications};
+\node[ent] (co) at (4,3.2) {cash\_out\_requests};
+\node[ent] (users) at (2,2.1) {users};
+\node[ent] (wal) at (4,2.1) {recipient\_wallets};
+\node[ent] (ben) at (0,1.0) {beneficiaries};
+\node[ent] (rem) at (2,1.0) {remittances};
+\node[ent] (set) at (2,-0.1) {settlement\_messages};
+\node[ent] (fee) at (0,-1.2) {fee\_config};
+\node[ent] (lim) at (2,-1.2) {limit\_tiers};
+\node[ent] (pw) at (4,-1.2) {platform\_wallet};
+\draw[arr] (sess) -- node[lab, left] {N:1} (users);
+\draw[arr] (kyc) -- node[lab, right] {0..1:1} (users);
+\draw[arr] (co) -- node[lab, right] {N:1} (users);
+\draw[arr] (wal) -- node[lab, above] {0..1:1} (users);
+\draw[arr] (ben) -- node[lab, left] {N:1 sender} (users);
+\draw[arr, dashed] (ben.north) to[bend left=18] node[lab, above left] {0..1 linked} (users.west);
+\draw[arr] (rem) -- node[lab, right] {N:1 sender} (users);
+\draw[arr] (rem) -- node[lab, above] {N:1} (ben);
+\draw[arr] (set) -- node[lab, right] {1:1} (rem);
+\end{tikzpicture}
+\caption{Entity--relationship view of the Alembic schema. Cardinalities are child:parent. The dashed edge is optional \texttt{linked\_user\_id}. Cash-out is not foreign-keyed to a remittance: payouts draw aggregated spendable UCTUSD. \texttt{fee\_config} and \texttt{platform\_wallet} are singletons; \texttt{limit\_tiers} is the unverified/verified lookup.}
+\label{fig:er}
+\end{figure}
 
 \begin{itemize}
   \item \texttt{users} --- name, unique email and mobile, bcrypt \texttt{password\_hash}, role.
@@ -260,8 +294,6 @@ Runtime schema is Alembic, not \texttt{create\_all} alone. FastAPI lifespan runs
 \end{itemize}
 
 Encrypted columns are stored as \texttt{VARCHAR(500)} (Fernet ciphertext). Existing SQLite files created only with \texttt{create\_all} have no \texttt{alembic\_version} table and will fail upgrade; demo databases should start empty and migrate.
-
-A remittance points at one sender and one beneficiary. A settlement message points at one remittance. A recipient wallet is 1:1 with a user. Cash-out requests belong to the recipient user, not to a remittance row: the recipient may cash out aggregated RLUSD, not a single inbound Payment. Platform wallet is a singleton.
 
 \section{API overview}
 The API is JSON over HTTP with Bearer sessions. FastAPI emits Swagger UI at \url{http://127.0.0.1:8000/docs} and the OpenAPI schema at \texttt{/openapi.json}. Route prefixes: auth, users, kyc, beneficiaries, remittances, limits, wallet, cash-outs, and admin (fees, limits, settlement, platform wallet). CORS defaults allow Vite on 5173 and 5174 (\texttt{localhost} and \texttt{127.0.0.1}), local React on 3000, and the API host on 8000, overridable with \texttt{CORS\_ORIGINS} as a JSON list. Credentials are allowed. The SPA stores the bearer token in \texttt{sessionStorage} and sends it as \texttt{Authorization: Bearer}.
@@ -311,9 +343,9 @@ Remaining limitations of \emph{this} fork, not of the old sketch:
 
 \section{Performance summary}
 \label{sec:perf}
-HTTP load was re-run on this fork on 7~September 2026 (50 concurrent synthetic users, 60~s, Windows, single-process uvicorn and SQLite). The tables and charts live in \texttt{PERFORMANCE\_TESTING.md} and \texttt{backend/perf/results/}. Five live Testnet Payments from 1~September 2026 remain the settlement sample---that path was not repeated against the demo treasury.
+HTTP load, queue enqueue, and five live Testnet Payments were re-run on this fork on 7~September 2026 (50 concurrent synthetic users, 60~s, Windows, single-process uvicorn and SQLite). The tables and charts live in \texttt{PERFORMANCE\_TESTING.md} and \texttt{backend/perf/results/}.
 
-The 7~September mix delivered 2{,}218 requests, zero failures, about 37~req/s. Authenticated reads sat around 20--33~ms at the median; \texttt{POST /remittances} about 66~ms median. \texttt{POST /auth/login} remains the outlier (about 850~ms median) because bcrypt is deliberately expensive. Queue enqueue on this OneDrive-backed SQLite host measured about 23 messages/s (a 1~September Mac sample of the same Redis path was 517~msg/s). Five real Testnet Payments averaged about 12.4~s each---ledger close time, not application CPU. Relative bottlenecks---bcrypt on login, consensus on settlement---are unchanged in kind.
+The HTTP mix delivered 2{,}218 requests, zero failures, about 37~req/s. Authenticated reads sat around 20--33~ms at the median; \texttt{POST /remittances} about 66~ms median. \texttt{POST /auth/login} remains the outlier (about 850~ms median) because bcrypt is deliberately expensive. Queue enqueue on this OneDrive-backed SQLite host measured about 29 messages/s (a 1~September Mac sample of the same Redis path was 517~msg/s). Five real Testnet Payments completed 5/5 and averaged about 17.5~s each---ledger close time, not application CPU (a 1~September sample of the same script was 12.4~s/tx). Relative bottlenecks---bcrypt on login, consensus on settlement---are unchanged in kind.
 
 \newpage
 \section{Web UI}

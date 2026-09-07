@@ -1,5 +1,7 @@
 # Performance Testing Results
 
+> **Baseline, not a re-run.** These Locust and Testnet figures were measured by Kerry-Lynn Whyte on **2026-08-31** (HTTP load) and **2026-09-01** (Redis enqueue + five live settlements) against the **sketch** backend. Group 3 has **not** repeated the run on this patched fork (`Karabo22Tigedi/FSE-Project`). Treat them as an order-of-magnitude baseline. The specification cites them that way.
+
 Run 2026-08-31 against the FastAPI backend running locally (`uvicorn
 app.main:app`, SQLite, single process) on the author's machine — not a
 production-equivalent host, so treat absolute numbers as indicative rather

@@ -9,8 +9,14 @@ from app.database import get_db
 from app.models.cash_out import CashOutRequest, CashOutStatus
 from app.models.fee_config import FeeConfig
 from app.models.user import User
+from app.models.wallet import RecipientWallet
 from app.schemas.cash_out import CashOutOut, CashOutRequestCreate
-from app.services.cash_out import SUPPORTED_FIAT_CURRENCIES, build_cash_out_quote
+from app.services.cash_out import (
+    SUPPORTED_FIAT_CURRENCIES,
+    build_cash_out_quote,
+    credit_spendable,
+    try_debit_spendable,
+)
 from app.services.recipient_wallet import get_or_create_wallet_row
 
 router = APIRouter(prefix="/cash-outs", tags=["cash-out"])
@@ -42,9 +48,12 @@ def request_cash_out(
             detail=f"Unsupported fiat currency. Supported: {sorted(SUPPORTED_FIAT_CURRENCIES)}",
         )
 
-    wallet_row = get_or_create_wallet_row(db, current_user.id)
-    available = to_decimal(wallet_row.balance)
-    if payload.rlusd_amount > available:
+    get_or_create_wallet_row(db, current_user.id)
+    if not try_debit_spendable(db, current_user.id, payload.rlusd_amount):
+        wallet_row = (
+            db.query(RecipientWallet).filter(RecipientWallet.user_id == current_user.id).first()
+        )
+        available = to_decimal(wallet_row.balance) if wallet_row is not None else 0
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Insufficient balance: available {available}, requested {payload.rlusd_amount}",
@@ -52,9 +61,6 @@ def request_cash_out(
 
     fee_config = _get_fee_config(db)
     quote = build_cash_out_quote(payload.rlusd_amount, payload.fiat_currency, fee_config)
-
-    wallet_row.balance = available - payload.rlusd_amount
-    db.add(wallet_row)
 
     cash_out = CashOutRequest(
         user_id=current_user.id,
@@ -142,9 +148,8 @@ def fail_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db: DB
     if cash_out.status not in (CashOutStatus.REQUESTED, CashOutStatus.APPROVED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot fail a completed cash-out")
 
-    wallet_row = get_or_create_wallet_row(db, cash_out.user_id)
-    wallet_row.balance = to_decimal(wallet_row.balance) + cash_out.rlusd_amount
-    db.add(wallet_row)
+    get_or_create_wallet_row(db, cash_out.user_id)
+    credit_spendable(db, cash_out.user_id, cash_out.rlusd_amount)
 
     cash_out.status = CashOutStatus.FAILED
     cash_out.actioned_at = datetime.now(timezone.utc)

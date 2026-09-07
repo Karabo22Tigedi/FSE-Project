@@ -48,6 +48,9 @@ class SettlementMessage(Base):
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Redis Streams transport id for this message. Null means the durable
+    # DB row exists but was never successfully XADD'd (or the id was lost).
+    stream_entry_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

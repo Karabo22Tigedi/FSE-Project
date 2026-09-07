@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.money import to_decimal
 from app.models.kyc import KYCStatus
 from app.models.limit_tier import LimitTier, LimitTierKey
-from app.models.remittance import Remittance
+from app.models.remittance import Remittance, RemittanceStatus
 from app.models.user import User
 
 
@@ -29,10 +29,25 @@ def get_tier_limits(db: DBSession, tier_key: LimitTierKey) -> LimitTier:
     return tier
 
 
+def _counts_toward_limit():
+    """Cancelled quotes never count. Quoted rows only count while unexpired.
+    Every later live status (cash_in_pending through settlement_failed) counts.
+    """
+    now = datetime.now(timezone.utc)
+    return (
+        Remittance.status != RemittanceStatus.CANCELLED,
+        or_(
+            Remittance.status != RemittanceStatus.QUOTED,
+            Remittance.expires_at > now,
+        ),
+    )
+
+
 def _sum_amount_since(db: DBSession, sender_id: str, since: datetime) -> Decimal:
     total = (
         db.query(func.coalesce(func.sum(Remittance.zar_amount), 0))
         .filter(Remittance.sender_id == sender_id, Remittance.created_at >= since)
+        .filter(*_counts_toward_limit())
         .scalar()
     )
     return to_decimal(total)

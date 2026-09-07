@@ -1,0 +1,162 @@
+\documentclass[11pt]{article}
+\input{../preamble.tex}
+
+\begin{document}
+\emergencystretch=3em
+\groupcover{Group Rationale}
+
+\noindent
+This note is for the three of us and for anyone marking the repo. It explains, in ordinary language, why remittance giants look the way they do, what this platform is trying to do instead, how the XRP Ledger pieces actually work, what was wrong with the first GitHub sketch, why we patched settlement before quotes, and how to run a demo on Windows. The system of record is this fork (Karabo22Tigedi / FSE-Project), not the sketch. Reports describe the patched API. One hundred and thirteen tests pass.
+
+\section{How Western Union and MoneyGram work}
+If you have ever sent money home from a South African mall, you already know the shape. You queue at a Western Union or MoneyGram desk, show an ID, fill in the recipient's name and city, and pay rand. The clerk quotes a fee and a payout amount in the other currency. You get a reference number (MTCN at Western Union; a similar reference at MoneyGram). You phone or WhatsApp that number to the recipient. They go to an agent on their side, show ID, and collect cash.
+
+Behind the counter there is a licensed money transmitter, an agent network, a compliance file, and a chain of banks that move value between countries. The customer does not see correspondent accounts or nostro/vostro balances. They see a fee, a rate, a wait, and cash. Both brands also offer digital send from a bank account or card, but a large share of corridors that matter for southern Africa still end in cash at an agent \citep{IMF2025SAZim,FinMark2024}.
+
+The product is not mysterious. It is \emph{cash in, a message that value has been paid, cash out}, with the operator sitting in the middle taking a fee for the network, the compliance, and the guarantee that the agent will pay. Our prototype copies that shape: rand in (simulated), a settlement instruction, digital value in a wallet, then a simulated cash-out. The middle hop is an RLUSD (or UCTUSD) Payment on the XRP Ledger Testnet instead of a bank wire \citep{UCTBrief2026}.
+
+\section{Where they fail the customer}
+They do not fail at existing. They fail at price, speed, and clarity for small sends.
+
+The World Bank's Remittance Prices Worldwide series is the public benchmark for ``how much does it cost to send a few hundred dollars home?'' \citep{WorldBankRPW}. South Africa is repeatedly a high-cost source market. Rateweb's write-up of the 2025~Q1 figures puts Western Union and MoneyGram flat fees around R214--R217 on a surveyed send of about R1{,}370 \citep{Rateweb2026}. That is not a rounding error. It is more than a tenth of the money before the operator's FX spread.
+
+The IMF corridor diagnostic for South Africa--Zimbabwe and FinMark's SADC remittance work describe the rest of the pain: cash collection, agent hours, delays, and prices that are hard to see until you are already at the till \citep{IMF2025SAZim,FinMark2024}. If the recipient does not have a bank account, cash is still the feature. The cost of that feature is paid by people sending grocery money.
+
+A stablecoin does not delete those problems. Someone still has to take the rand and someone still has to hand over dollars or local cash. What a ledger \emph{can} do is settle the \emph{middle} quickly, with a public transaction hash, and with a fee model you can write down in four lines. That is the slice we built. We are honest about the rest: our cash-in and cash-out are simulated, and a token hop is not a SARB licence \citep{UCTBrief2026}.
+
+\section{How this platform is supposed to help}
+We are not replacing agent networks in production. We are showing a cleaner middle:
+
+\begin{itemize}
+  \item A quote that states the fixed fee, the percentage fee, the FX margin on the rate, the RLUSD that will be paid, and an estimated cash-out. Admins can change those parameters without a code push.
+  \item A 15-minute quote that the sender can cancel. Abandoned or expired quotes do not eat the R3{,}000 / R25{,}000 verified limits.
+  \item A tracking reference that looks like a MoneyGram-style code (\texttt{MG} plus ten digits), not a UUID.
+  \item After simulated cash-in is confirmed, a background worker pays RLUSD on Testnet from a treasury wallet into a custodial wallet that belongs to that recipient.
+  \item The recipient sees spendable balance versus a computed on-chain figure, plus the Payment hash.
+\end{itemize}
+
+On a R1{,}370 send at the seeded defaults and the 18.50 fallback rate, the transaction fee is R38.70, not R214. That is an illustration with simulated rails, not a promise that a licensed product would charge R38.70. The point is that the formula is public and the sketch's ``quotes forever consume limit'' behaviour is gone.
+
+\section{XRPL issued tokens, in course language}
+XRP is the only asset every XRPL account can hold without asking. Everything else---RLUSD, a university IOU, a game token---is an \emph{issued currency}. The course resources call these trust-line tokens, or informally IOUs: a promise from an issuing account that it owes the holder that amount of the underlying asset \citep{UCTResources2026,XRPLIssued}.
+
+Because an IOU is a promise, you cannot be forced to accept one. You opt in with a \emph{trust line}: a TrustSet transaction that says ``I am willing to hold up to $X$ of this issuer's token'' \citep{XRPLTrustLines}. Creating the line reserves a little XRP in the account (locked, not spent). Rippling is a related issuer setting that lets the same IOU move between holders; we do not implement rippling ourselves, but it is why an issuer usually turns Default Ripple on \citep{UCTResources2026}.
+
+Official RLUSD liquidity on Testnet is tight, so the course told us to keep issuer address and currency code in \texttt{.env}. We default to the UCTUSD fallback IOU. Switching to real RLUSD is a config change, not a rewrite \citep{UCTResources2026}.
+
+Our custody model is hybrid. One platform treasury wallet holds the scarce IOU. Each recipient still gets a real Testnet account, funded from a faucet, with a TrustSet to that issuer, so the Payment the worker submits is a real ledger transaction with a hash the recipient can look up. We persist the new address and encrypted secret \emph{before} we submit TrustSet. If TrustSet fails, we retry with the same wallet; we do not generate a second one and strand the first.
+
+\section{What the sketch got wrong}
+Kerry's repository was a useful sketch: FastAPI, bcrypt, Redis Streams, Testnet Payments, simulated cash legs. It also had correctness bugs we would not want to demo. This section is about \emph{that} code, not about the current fork.
+
+\paragraph{Abandoned quotes ate limits.}
+A quote counted toward daily and monthly ZAR the moment it was created. There was no expiry and no cancel. A sender who asked for a price and walked away still burned their R3{,}000 day. That is not how a teller quote works, and it made the limit table lie.
+
+\paragraph{Crash double-pay.}
+If the worker submitted an XRPL Payment and then crashed before it wrote the hash and the credit, a retry could pay again. The unique settlement row was not enough if the chain had already moved and the database had not.
+
+\paragraph{Ack-before-done.}
+Redis entries were acknowledged when the worker \emph{took} the message, not when the database reached \texttt{completed} or \texttt{failed}. A crash after ack meant the stream was done and the remittance was not. There was no PEL reclaim, so the message sat nowhere useful. Admin retry was failed-only.
+
+\paragraph{Cash-out lied about the ledger.}
+Spendable balance was treated as if it were the on-chain balance. Simulated cash-out never burns tokens, so after a cash-out request the wallet JSON could not tell ``I can still spend this'' from ``this is still sitting on Testnet''. Clients had no honest pair of numbers.
+
+\paragraph{\texttt{create\_all} schema drift.}
+SQLAlchemy \texttt{create\_all} creates missing tables and then stops. New columns on existing tables never appeared. That already bit development once. Demo databases and the models silently diverged.
+
+\paragraph{Silent decrypt.}
+If a Fernet key was wrong, encrypted columns could come back as empty instead of failing. A bad key looks like ``this user has no ID number'' rather than ``stop, you cannot read the vault''.
+
+Other sketch behaviour we also replaced: plaintext session tokens in the sessions table; no tracking reference; cash-in possible on a stale quote; retry that could not unstick pending or processing rows; TrustSet that could generate a new wallet if the first attempt died after address creation.
+
+Table~\ref{tab:bugs} is the short version we used when deciding patch order.
+
+\begin{table}[ht]
+\centering
+\caption{Sketch failure versus what this fork does.}
+\label{tab:bugs}
+\footnotesize
+\begin{tabular}{@{}p{0.42\textwidth}p{0.50\textwidth}@{}}
+\toprule
+\textbf{Sketch} & \textbf{This fork} \\
+\midrule
+Quote counted forever; no cancel/TTL &
+15~min TTL; cancel; expired/cancelled excluded from limits \\
+Crash after Payment could pay twice &
+Hash short-circuit; memo = remittance id; one credit commit \\
+Ack on take; no PEL reclaim &
+Ack on completed/failed; reclaim then new entries \\
+Wallet JSON = spendable only, called ``ledger'' &
+Spendable vs on-chain (non-failed cash-outs) \\
+\texttt{create\_all} never alters columns &
+Alembic 0001 then 0002 \\
+Bad Fernet key $\to$ empty field &
+\texttt{RuntimeError} on decrypt \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Why Patch A then Patch B}
+We split the work on purpose.
+
+Patch~A was money movement and schema truth: Alembic \texttt{0001\_initial} (including \texttt{stream\_entry\_id}), outbox republish, Payment memo with remittance id, no second pay if the hash is set, ack only on terminal status, PEL reclaim with a Redis~5 fallback, retry of pending/processing/failed, persist address before TrustSet, decrypt errors that raise. Those bugs lose value or strand a Payment. They had to be fixed before we added more columns.
+
+Patch~B was not allowed to rewrite \texttt{0001\_initial}. It added \texttt{0002\_quote\_session}: quote TTL, \texttt{cancelled}, tracking refs, hashed session tokens, CORS, wallet JSON that distinguishes spendable and on-chain, limit rules that ignore cancelled and expired quotes, 422 when the fee consumes the send. That patch is what senders and the future UI actually feel, but it sits on a ledger that already tells the truth.
+
+Doing B first would have meant either editing 0001 (forbidden once A shipped) or stacking quote columns onto a settlement path that could still double-pay. Doing A first meant the worker invariants were in place, then B could add \texttt{expires\_at} and \texttt{token\_hash} without touching Payment code.
+
+\section{How to run and demo on Windows}
+You need Python~3.11+, a local Redis on port 6379, and two Fernet keys. This team's Redis was Memurai / Redis~5.0.14; Docker \texttt{redis} or WSL \texttt{redis-server} also work. Homebrew is not the Windows path.
+
+\begin{enumerate}
+  \item Start Redis so \texttt{redis://localhost:6379/0} answers. Confirm with any Redis CLI \texttt{PING}.
+  \item In PowerShell:
+\begin{verbatim}
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+\end{verbatim}
+  \item Generate two different keys and paste them into \texttt{.env}. In Python:
+        \texttt{Fernet.generate\_key()} from the \texttt{cryptography} package.
+        Set \texttt{KYC\_ENCRYPTION\_KEY} and \texttt{XRPL\_KEY\_ENCRYPTION\_KEY}. Do not commit \texttt{.env}.
+  \item Prefer an empty database file. From \texttt{backend}:
+\begin{verbatim}
+.\.venv\Scripts\alembic upgrade head
+\end{verbatim}
+  App startup runs the same upgrade. Leftover \texttt{create\_all} files without \texttt{alembic\_version} will fail; delete them or stamp only if you know why.
+  \item Terminal~1: start uvicorn with reload from \texttt{backend}, then open
+        \url{http://127.0.0.1:8000/docs}.
+  \item Create an admin (never via register):
+        \texttt{python -m scripts.create\_admin} with name, email, mobile, password.
+  \item Once per environment, with network access to Testnet:
+\begin{verbatim}
+python -m scripts.setup_platform_wallet
+\end{verbatim}
+  It prints the classic address only, never the secret. Send that address to the course liquidity contact if you need UCTUSD/RLUSD.
+  \item Demo path in Swagger: register two customers, submit KYC, admin-approve both, add a beneficiary that matches the recipient, create a quote, cash-in, admin confirm-cash-in, then either
+\begin{verbatim}
+python -m scripts.run_settlement_worker
+\end{verbatim}
+  or \texttt{POST /admin/settlement/run}. Recipient \texttt{GET /wallet/me} should show the hash and spendable balance. Cash-out is a status workflow; it will not move tokens back on chain.
+  \item Tests (Redis must be up; XRPL is mocked):
+\begin{verbatim}
+python -m pytest -q
+\end{verbatim}
+  Expect 113 passed.
+\end{enumerate}
+
+If settlement is stuck in pending or processing, retry that settlement id as admin. Do not retry completed. If Redis was down during enqueue, retry republishes the outbox row.
+
+\subsection{Ten-minute marking demo}
+With Redis up, keys set, admin created, and the platform wallet funded: (1)~register sender and recipient; (2)~both submit KYC; (3)~admin approves both; (4)~sender adds the recipient as a beneficiary (mobile/email match); (5)~post a quote under R3{,}000; (6)~show that cancel frees the limit, then create a fresh quote; (7)~cash-in, admin confirm; (8)~run the worker; (9)~recipient wallet shows spendable, hash, and on-chain; (10)~request cash-out, admin complete---spendable drops, on-chain stays higher by that amount; (11)~fail a second cash-out and show the refund. Optional: cancel is 409 after expiry; retry of completed is 409.
+
+The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 113 passed.
+
+Compiled reports: \texttt{docs/reports/spec/} and \texttt{docs/reports/rationale/} PDFs. Kerry's Locust tables in \texttt{PERFORMANCE\_TESTING.md} are a baseline from 31~August / 1~September 2026; we did not re-run them on this fork.
+
+\bibliographystyle{apalike}
+\bibliography{../refs}
+
+\end{document}

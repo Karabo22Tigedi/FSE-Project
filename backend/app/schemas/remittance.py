@@ -19,6 +19,7 @@ class RemittanceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    tracking_ref: str
     sender_id: str
     beneficiary_id: str
     zar_amount: Decimal
@@ -36,4 +37,5 @@ class RemittanceOut(BaseModel):
     xrpl_settlement_tx_hash: str | None
     settled_at: datetime | None
     settlement_failure_reason: str | None
+    expires_at: datetime
     created_at: datetime

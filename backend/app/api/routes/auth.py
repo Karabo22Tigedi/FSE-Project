@@ -42,8 +42,8 @@ def login(payload: UserLogin, db: DBSession = Depends(get_db)):
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
 
-    session = create_session(db, user.id)
-    return TokenResponse(access_token=session.token, expires_at=session.expires_at, user=user)
+    session, raw_token = create_session(db, user.id)
+    return TokenResponse(access_token=raw_token, expires_at=session.expires_at, user=user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

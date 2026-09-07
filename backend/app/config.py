@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./fx_platform.db"
     session_expire_hours: int = 12
     kyc_encryption_key: str = ""
+    quote_ttl_seconds: int = 900
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ]
 
     # FR-13: a live public exchange-rate API is the primary source, with
     # this fixed value as the fallback if that API is unreachable or

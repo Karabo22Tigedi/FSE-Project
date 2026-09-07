@@ -169,3 +169,20 @@ def test_recipient_sees_only_own_cash_outs(client, settle_a_remittance, admin_he
     other_headers = register_and_login(email="other@example.com", mobile="+27000000998")
     assert client.get("/cash-outs/me", headers=other_headers).json() == []
     assert len(client.get("/cash-outs/me", headers=recipient_headers).json()) == 1
+
+
+def test_second_cash_out_cannot_overdraw_spendable(client, settle_a_remittance, admin_headers):
+    recipient_headers, _sender_headers, settled = settle_a_remittance()
+    _approve_recipient_kyc(client, admin_headers, recipient_headers, "recipient@example.com", "+27000000777")
+
+    full = Decimal(client.get("/wallet/me", headers=recipient_headers).json()["spendable_balance"])
+    first = client.post(
+        "/cash-outs", json={"rlusd_amount": str(full), "fiat_currency": "USD"}, headers=recipient_headers
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        "/cash-outs", json={"rlusd_amount": "0.000001", "fiat_currency": "USD"}, headers=recipient_headers
+    )
+    assert second.status_code == 422
+    assert "Insufficient balance" in second.json()["detail"]

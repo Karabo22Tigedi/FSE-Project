@@ -1,10 +1,14 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.deps import get_current_user
+from app.core.money import to_decimal
 from app.database import get_db
 from app.models.beneficiary import Beneficiary
-from app.models.cash_out import CashOutRequest
+from app.models.cash_out import CashOutRequest, CashOutStatus
 from app.models.remittance import Remittance, RemittanceStatus
 from app.models.user import User
 from app.schemas.wallet import CashOutSummaryOut, IncomingTransferOut, WalletOut
@@ -18,6 +22,26 @@ _VISIBLE_INCOMING_STATUSES = [
     RemittanceStatus.SETTLEMENT_FAILED,
 ]
 
+# Simulated cash-out does not burn on-chain tokens; these statuses remain
+# reserved against the chain view even after spendable is debited.
+_ON_CHAIN_CASHOUT_STATUSES = (
+    CashOutStatus.REQUESTED,
+    CashOutStatus.APPROVED,
+    CashOutStatus.COMPLETED,
+)
+
+
+def _on_chain_balance(db: DBSession, user_id: str, spendable: Decimal) -> Decimal:
+    reserved = (
+        db.query(func.coalesce(func.sum(CashOutRequest.rlusd_amount), 0))
+        .filter(
+            CashOutRequest.user_id == user_id,
+            CashOutRequest.status.in_(_ON_CHAIN_CASHOUT_STATUSES),
+        )
+        .scalar()
+    )
+    return spendable + to_decimal(reserved)
+
 
 @router.get("/me", response_model=WalletOut)
 def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
@@ -25,6 +49,7 @@ def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession 
     balance, incoming transfers (with status/date/XRPL tx hash), and
     cash-out history."""
     wallet_row = get_or_create_wallet_row(db, current_user.id)
+    spendable = to_decimal(wallet_row.balance)
 
     incoming = (
         db.query(Remittance)
@@ -42,7 +67,9 @@ def get_my_wallet(current_user: User = Depends(get_current_user), db: DBSession 
     )
 
     return WalletOut(
-        balance_rlusd=wallet_row.balance,
+        balance_rlusd=spendable,
+        spendable_balance=spendable,
+        on_chain_balance=_on_chain_balance(db, current_user.id, spendable),
         xrpl_address=wallet_row.xrpl_address,
         incoming_transfers=[
             IncomingTransferOut(

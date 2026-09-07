@@ -40,3 +40,43 @@ def test_wallet_hides_other_recipients_transfers(client, settle_a_remittance, re
     other_wallet = client.get("/wallet/me", headers=other_headers).json()
     assert other_wallet["incoming_transfers"] == []
     assert Decimal(other_wallet["balance_rlusd"]) == Decimal("0")
+
+
+def test_wallet_exposes_spendable_and_on_chain_after_cash_out(client, settle_a_remittance, admin_headers):
+    recipient_headers, _sender_headers, settled = settle_a_remittance()
+    client.post(
+        "/kyc",
+        json={
+            "full_name": "Recipient",
+            "date_of_birth": "1992-05-01",
+            "nationality": "South African",
+            "identification_number": "9205015009087",
+            "residential_address": "5 Beach Road, Cape Town",
+            "mobile_number": "+27000000777",
+            "email_address": "recipient@example.com",
+            "source_of_funds": "Employment",
+        },
+        headers=recipient_headers,
+    )
+    application_id = client.get("/kyc/me", headers=recipient_headers).json()["id"]
+    client.post(f"/kyc/{application_id}/approve", headers=admin_headers)
+
+    before = client.get("/wallet/me", headers=recipient_headers).json()
+    settled_amount = Decimal(settled["rlusd_amount"])
+    assert Decimal(before["balance_rlusd"]) == settled_amount
+    assert Decimal(before["spendable_balance"]) == settled_amount
+    assert Decimal(before["on_chain_balance"]) == settled_amount
+
+    cash_out_amount = Decimal("10.000000")
+    resp = client.post(
+        "/cash-outs",
+        json={"rlusd_amount": str(cash_out_amount), "fiat_currency": "USD"},
+        headers=recipient_headers,
+    )
+    assert resp.status_code == 201
+
+    after = client.get("/wallet/me", headers=recipient_headers).json()
+    assert Decimal(after["spendable_balance"]) == settled_amount - cash_out_amount
+    assert Decimal(after["balance_rlusd"]) == Decimal(after["spendable_balance"])
+    assert Decimal(after["on_chain_balance"]) == settled_amount
+    assert Decimal(after["on_chain_balance"]) > Decimal(after["spendable_balance"])

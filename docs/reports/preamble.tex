@@ -1,0 +1,40 @@
+% Shared preamble for Group 3 reports. Compile from each paper's directory
+% with pdflatex + bibtex (see compile.ps1).
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[authoryear,round,sort]{natbib}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{fancyhdr}
+
+\onehalfspacing
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.25em}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.25em}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+
+\newcommand{\groupcover}[1]{%
+  \begin{center}
+    {\large University of Cape Town}\\[0.4em]
+    {\large ECO5040W --- Financial Software Engineering}\\[1.2em]
+    {\LARGE\bfseries #1}\\[1.0em]
+    {\large XRPL-Based FX Remittance Platform using RLUSD}\\[1.4em]
+    Annita Ngoma \quad Karabo Tigedi \quad Kerry-Lynn Whyte\\[0.3em]
+    {\small Group 3}\\[0.6em]
+    {\small 7 September 2026}
+  \end{center}
+  \vspace{1.2em}
+}

@@ -1,116 +1,93 @@
 # XRPL-Based FX Remittance Platform (RLUSD)
 
-UCT ECO5040W group project. Prototype cross-border remittance platform: ZAR
-in, RLUSD/UCTUSD settlement on the XRP Ledger Testnet, simulated fiat
-cash-out.
+UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte).
 
-## Status
+This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances). **113** pytest tests passed on this tree.
 
-All functional requirements (FR-01 through FR-35, including lettered
-sub-requirements) from `functional_requirements.pdf` are implemented and
-tested - registration/login/logout/profile, KYC + admin review, beneficiary
-management with auto-linking, quote/fee/limit calculation with admin config,
-simulated cash-in, a Redis Streams settlement queue + worker that submits
-real XRPL Payment transactions, the recipient's custodial wallet, sender
-transaction history, and simulated cash-out with admin actioning. Not yet
-done: the web front end (currently API-only, explorable via `/docs`) and the
-performance-testing deliverable.
+Academic prototype only: simulated ZAR cash-in, RLUSD/UCTUSD settlement on the XRP Ledger **Testnet**, simulated fiat cash-out. No real customer funds, no Mainnet credentials.
+
+## Reports (deliverable i)
+
+Compiled PDFs (run `powershell -File docs/reports/compile.ps1`):
+
+- [Business and technical specification](docs/reports/spec/business_technical_specification.pdf) (official 10–15 page spec)
+- [Group rationale](docs/reports/rationale/group_rationale.pdf)
+
+LaTeX sources live next to those PDFs. Kerry’s old `ASSUMPTIONS_AND_LIMITATIONS.md` listed sketch bugs as if they were current; it is now a pointer to the spec.
+
+## What we changed versus the sketch
+
+- **Alembic** `0001_initial` + `0002_quote_session` at runtime (startup runs `upgrade head`). Tests still `create_all` on in-memory SQLite.
+- **Quotes:** 15-minute TTL, `POST /remittances/{id}/cancel`, tracking ref `MG` + 10 digits, `GET /remittances/track/{ref}`. Cancelled and expired quotes **do not** count toward limits. Sends whose fees consume the principal return **422**.
+- **Settlement:** Redis outbox `stream_entry_id`; ack only on `completed`/`failed`; PEL reclaim (Redis 6.2 `XAUTOCLAIM` or Redis 5 `XCLAIM`); retry pending/processing/failed; Payment memo = remittance id; no second pay if `xrpl_settlement_tx_hash` is set.
+- **Wallets:** persist XRPL address **before** TrustSet. `GET /wallet/me` exposes `balance_rlusd` = spendable, plus `spendable_balance` and `on_chain_balance` (spendable + non-failed cash-outs). Simulated cash-out does not burn on-chain tokens.
+- **Sessions:** bcrypt passwords; SHA-256 `token_hash` at rest (raw token returned once at login).
+- **Crypto:** bad Fernet ciphertext raises rather than returning empty; two keys (KYC vs XRPL).
+- **CORS** for localhost UI origins (5173 / 3000 / 8000).
 
 ## Stack
 
-FastAPI + SQLAlchemy + SQLite (dev), per `basics.pdf`'s recommendations.
-Passwords hashed with bcrypt via passlib. Sessions are opaque bearer tokens
-stored in a `sessions` table (not JWT) so logout can just revoke a row.
-XRPL integration uses `xrpl-py` against the public Testnet JSON-RPC endpoint.
-The settlement queue is Redis Streams (`redis-py`), per basics.pdf's
-recommendation - requires a local Redis instance (`brew install redis`).
-The USD/ZAR exchange rate is fetched from a live public API
-(open.er-api.com, no key needed), cached for 5 minutes, falling back to a
-configured static rate if that API is ever unreachable.
+FastAPI + SQLAlchemy + SQLite (dev). Redis Streams for settlement transport (DB row is source of truth). `xrpl-py` against Testnet JSON-RPC. USD/ZAR from [open.er-api.com](https://open.er-api.com/v6/latest/USD), cached 5 minutes, `.env` fallback (`USD_ZAR_RATE`). Interactive API: `http://127.0.0.1:8000/docs`.
 
-## Key assumptions (to carry into the technical specification)
+## Running locally (Windows)
 
-- **Roles (FR-04)**: `UserRole` is `CUSTOMER` or `ADMIN`. A customer account
-  acts as both sender and recipient depending on context, not as two
-  separate identities. Admin accounts are provisioned via
-  `scripts/create_admin.py`, never via self-registration.
-- **KYC resubmission**: one KYC row per user. A rejected (or still pending)
-  application can be resubmitted, which overwrites the details and resets
-  status to `pending`. Once `approved`, resubmission is blocked (409).
-- **Beneficiary linking (FR-12a/12c)**: auto-match on mobile/email against
-  an existing account, either immediately at creation or retroactively when
-  a matching account registers later - not an invite-to-register flow.
-- **Wallet model**: a hybrid of the brief's two options. One platform
-  treasury wallet (`PlatformWallet`) holds the team's UCTUSD/RLUSD liquidity;
-  each recipient still gets a real, platform-controlled custodial XRPL
-  Testnet account (`RecipientWallet`), generated lazily on first settlement.
-  This lets FR-22/23 produce a genuine, individually attributable on-chain
-  Payment + tx hash per remittance, while only the one treasury wallet needs
-  scarce token liquidity (XRP funding and TrustLines are free/unlimited via
-  the faucet). `RecipientWallet.balance` is a cached ledger view of that
-  account's real on-chain balance.
-- **Message queue**: Redis Streams (`app/services/settlement.py`), per
-  basics.pdf's "lowest-friction options to stand up locally" recommendation.
-  A consumer group (`settlement_workers`) reads entries and acks them after
-  processing; the durable record of status/outcome/tx-hash (FR-23, NFR-09)
-  stays in the `SettlementMessage`/`Remittance` DB rows regardless - Redis is
-  purely the transport that wakes a consumer up, not the source of truth.
-  No automatic redelivery-on-crash (PEL reclaim) is implemented; a stuck
-  message needs the admin retry endpoint, which explicitly re-publishes.
-- **Fee model**: a single admin-editable `FeeConfig` row (fixed fee, %
-  fee, FX margin, cash-out fee) rather than a versioned/historical table.
-- **Limit tiers (FR-16b)**: derived from KYC status (approved → `verified`,
-  everything else → `unverified`) rather than a separately stored field.
-- **Currency (basics.pdf, "RLUSD vs our own IOU")**: issuer address and
-  currency code are config values (`XRPL_ISSUER_ADDRESS`,
-  `XRPL_CURRENCY_CODE`), currently pointed at the course-provided UCTUSD
-  fallback token - switching to real RLUSD is a one-line `.env` change.
+Redis must be listening on `localhost:6379`. Use **Memurai**, **Docker** (`docker run -d -p 6379:6379 redis`), **WSL** `redis-server`, or another Redis 5+ build. (macOS Homebrew is optional, not the only path.)
 
-## Running locally
+In **PowerShell**:
 
-```bash
-brew install redis && brew services start redis   # once per machine
-
+```powershell
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-cp .env.example .env   # then set the two encryption keys, see comments in the file
-uvicorn app.main:app --reload
+Copy-Item .env.example .env
+```
+
+Generate **two different** Fernet keys and put them in `.env` as `KYC_ENCRYPTION_KEY` and `XRPL_KEY_ENCRYPTION_KEY`:
+
+```powershell
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Prefer a **fresh** SQLite file, then migrate (app startup does this too):
+
+```powershell
+.\.venv\Scripts\alembic upgrade head
+python -m uvicorn app.main:app --reload
 ```
 
 API docs: http://127.0.0.1:8000/docs
 
-Create an admin account:
+Create an admin (not via public register):
 
-```bash
+```powershell
 python -m scripts.create_admin "Admin Name" admin@example.com +27000000000 <password>
 ```
 
-Set up the platform's XRPL wallet (once per environment):
+Once per environment, platform Testnet wallet (prints the **address** only):
 
-```bash
+```powershell
 python -m scripts.setup_platform_wallet
 ```
 
-Run one pass of the settlement worker (or POST `/admin/settlement/run`):
+Settlement worker (or `POST /admin/settlement/run` while logged in as admin):
 
-```bash
+```powershell
 python -m scripts.run_settlement_worker
 ```
 
+Leftover DBs created only with `create_all` (no `alembic_version`) will fail `upgrade`. Start from an empty file for demos.
+
 ## Tests
 
-```bash
+Redis must be running. XRPL calls are mocked; tests use Redis DB 15.
+
+```powershell
 cd backend
-source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
 python -m pytest -q
 ```
 
-All XRPL network calls (faucet funding, TrustSet, Payment) are mocked in the
-test suite (see the `mock_xrpl` fixture in `tests/conftest.py`) so it runs
-fast and offline - the real integration is exercised manually against the
-live Testnet instead. Redis, however, is real in tests - it's fast and
-local, so there's no need to mock it. Tests use DB 15 (a conventional
-scratch database), flushed before every test, kept separate from dev/demo
-data in DB 0.
+## Performance numbers
 
+[`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is Kerry’s Locust / Testnet baseline (2026-08-31 / 09-01). It was **not** re-run on this patched fork.

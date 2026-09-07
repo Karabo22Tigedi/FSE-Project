@@ -9,3 +9,17 @@ venv/
 .DS_Store
 *.egg-info/
 backend/perf/synthetic_users.json
+.tools/
+dump.rdb
+*.rdb
+*.aux
+*.log
+*.toc
+*.out
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+ECO5040W - FSE Class Project Brief 2026.pdf
+ECO5040W - Project Resources.pdf

@@ -13,5 +13,6 @@ class SettlementMessageOut(BaseModel):
     status: SettlementMessageStatus
     attempts: int
     failure_reason: str | None
+    stream_entry_id: str | None = None
     created_at: datetime
     processed_at: datetime | None

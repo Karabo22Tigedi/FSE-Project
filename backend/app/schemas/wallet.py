@@ -24,9 +24,16 @@ class CashOutSummaryOut(BaseModel):
 
 
 class WalletOut(BaseModel):
-    """FR-27/FR-28: the recipient's custodial wallet."""
+    """FR-27/FR-28: the recipient's custodial wallet.
+
+    `balance_rlusd` and `spendable_balance` are the same spendable ledger
+    (`RecipientWallet.balance`). `on_chain_balance` is spendable plus
+    cash-out amounts still reserved on-chain (requested/approved/completed).
+    """
 
     balance_rlusd: Decimal
+    spendable_balance: Decimal
+    on_chain_balance: Decimal
     xrpl_address: str | None
     incoming_transfers: list[IncomingTransferOut]
     cash_out_transactions: list[CashOutSummaryOut]

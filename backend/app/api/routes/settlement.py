@@ -43,7 +43,17 @@ def retry_settlement_message(
     message = db.query(SettlementMessage).filter(SettlementMessage.id == message_id).first()
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Settlement message not found")
-    if message.status != SettlementMessageStatus.FAILED:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a failed message can be retried")
+    if message.status == SettlementMessageStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="A completed settlement cannot be retried"
+        )
+    if message.status not in (
+        SettlementMessageStatus.FAILED,
+        SettlementMessageStatus.PROCESSING,
+        SettlementMessageStatus.PENDING,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Only a pending, processing, or failed message can be retried"
+        )
 
     return _retry_settlement_message(db, message)

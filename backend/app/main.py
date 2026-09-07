@@ -1,17 +1,39 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.config import get_settings
 from app.database import Base, SessionLocal, engine
-from app.models import *  # noqa: F401,F403 - ensure all models are registered before create_all
+from app.models import *  # noqa: F401,F403 - register models before migrations
 from app.services.bootstrap import seed_defaults
+
+
+def run_migrations() -> None:
+    """Apply Alembic migrations to DATABASE_URL. Replaces create_all as the
+    runtime schema path so new columns (e.g. settlement outbox fields) are
+    actually applied on existing databases.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    from app.config import get_settings
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", (backend_dir / "alembic").as_posix())
+    cfg.set_main_option("sqlalchemy.url", get_settings().database_url)
+    command.upgrade(cfg, "head")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # KISS for the MVP slice: create_all against SQLite. A real migration
-    # tool (Alembic) should replace this once the schema stabilises.
+    run_migrations()
+    # Alembic is the source of schema for file/server databases. create_all
+    # is a no-op when tables already exist, and is required for sqlite://
+    # in-memory (Alembic opens a different connection, so its tables vanish).
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -22,6 +44,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="XRPL FX Remittance Platform", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health", tags=["health"])

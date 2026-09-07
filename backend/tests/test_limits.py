@@ -55,3 +55,38 @@ def test_limits_reflect_usage_after_a_quote(client, approved_sender):
     assert Decimal(body["used_this_month_zar"]) == Decimal("1200.00")
     assert Decimal(body["remaining_today_zar"]) == Decimal("1800.00")
     assert Decimal(body["remaining_this_month_zar"]) == Decimal("23800.00")
+
+
+def test_limits_ignore_cancelled_and_expired_quotes(client, approved_sender):
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.remittance import Remittance
+    from tests.conftest import TestingSessionLocal
+
+    headers = approved_sender()
+    beneficiary_id = _add_beneficiary(client, headers)
+
+    cancelled = client.post(
+        "/remittances", json={"beneficiary_id": beneficiary_id, "zar_amount": "400.00"}, headers=headers
+    ).json()
+    client.post(f"/remittances/{cancelled['id']}/cancel", headers=headers)
+
+    expired = client.post(
+        "/remittances", json={"beneficiary_id": beneficiary_id, "zar_amount": "500.00"}, headers=headers
+    ).json()
+    db = TestingSessionLocal()
+    try:
+        row = db.query(Remittance).filter(Remittance.id == expired["id"]).first()
+        row.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    live = client.post(
+        "/remittances", json={"beneficiary_id": beneficiary_id, "zar_amount": "300.00"}, headers=headers
+    )
+    assert live.status_code == 201
+
+    body = client.get("/limits/me", headers=headers).json()
+    assert Decimal(body["used_today_zar"]) == Decimal("300.00")

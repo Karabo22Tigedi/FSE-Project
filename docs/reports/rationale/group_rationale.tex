@@ -15,6 +15,8 @@ Behind the counter there is a licensed money transmitter, an agent network, a co
 
 The product is not mysterious. It is \emph{cash in, a message that value has been paid, cash out}, with the operator sitting in the middle taking a fee for the network, the compliance, and the guarantee that the agent will pay. Our prototype copies that shape: rand in (simulated), a settlement instruction, digital value in a wallet, then a simulated cash-out. The middle hop is an RLUSD (or UCTUSD) Payment on the XRP Ledger Testnet instead of a bank wire \citep{UCTBrief2026}.
 
+Western Union's MTCN and MoneyGram's reference are how the two sides of that cash sandwich find each other without sharing a bank. Our \texttt{tracking\_ref} (\texttt{MG} plus ten digits) is the same idea in miniature: the sender can WhatsApp it, the recipient or an admin can look it up, and it is not a 36-character UUID. The important difference is what happens between the two cash doors. In the traditional model that interval is the operator's internal books plus correspondent banks. In ours it is a Testnet Payment whose hash is stored on the remittance row.
+
 \section{Where they fail the customer}
 They do not fail at existing. They fail at price, speed, and clarity for small sends.
 
@@ -50,6 +52,8 @@ Because an IOU is a promise, you cannot be forced to accept one. You opt in with
 Official RLUSD liquidity on Testnet is tight, so the course told us to keep issuer address and currency code in \texttt{.env}. We default to the UCTUSD fallback IOU. Switching to real RLUSD is a config change, not a rewrite \citep{UCTResources2026}.
 
 Our custody model is hybrid. One platform treasury wallet holds the scarce IOU. Each recipient still gets a real Testnet account, funded from a faucet, with a TrustSet to that issuer, so the Payment the worker submits is a real ledger transaction with a hash the recipient can look up. We persist the new address and encrypted secret \emph{before} we submit TrustSet. If TrustSet fails, we retry with the same wallet; we do not generate a second one and strand the first.
+
+None of this is Mainnet, and none of it is the recipient holding keys in Xaman. The platform is the custodian: it encrypts the seed with a Fernet key that is not in the database, and it signs Payments on the recipient's behalf. That is why the specification spends a page on custody and licensing. It is also why \texttt{setup\_platform\_wallet} prints the classic address and never the secret.
 
 \section{What the sketch got wrong}
 Kerry's repository was a useful sketch: FastAPI, bcrypt, Redis Streams, Testnet Payments, simulated cash legs. It also had correctness bugs we would not want to demo. This section is about \emph{that} code, not about the current fork.
@@ -109,6 +113,8 @@ Patch~A was money movement and schema truth: Alembic \texttt{0001\_initial} (inc
 Patch~B was not allowed to rewrite \texttt{0001\_initial}. It added \texttt{0002\_quote\_session}: quote TTL, \texttt{cancelled}, tracking refs, hashed session tokens, CORS, wallet JSON that distinguishes spendable and on-chain, limit rules that ignore cancelled and expired quotes, 422 when the fee consumes the send. That patch is what senders and the future UI actually feel, but it sits on a ledger that already tells the truth.
 
 Doing B first would have meant either editing 0001 (forbidden once A shipped) or stacking quote columns onto a settlement path that could still double-pay. Doing A first meant the worker invariants were in place, then B could add \texttt{expires\_at} and \texttt{token\_hash} without touching Payment code.
+
+The same order is how you should talk about the demo. Show that a Payment is idempotent (retry of completed is 409; a second worker pass does not double-credit) \emph{before} you show the 15-minute quote timer. Markers who only see Swagger quotes will miss why A existed.
 
 \newpage
 \section{How to run and demo on Windows}

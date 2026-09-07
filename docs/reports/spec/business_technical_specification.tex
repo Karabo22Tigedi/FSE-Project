@@ -8,7 +8,7 @@
 \groupcover{Business and Technical Specification}
 
 \noindent
-This specification describes \textbf{Group 3's} XRPL remittance prototype as implemented in this GitHub fork (Karabo22Tigedi / FSE-Project). An earlier GitHub sketch by Kerry-Lynn Whyte established FastAPI, SQLite, Redis Streams, and Testnet Payments. This document is about \emph{our} patched system, not that sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and thirteen automated tests currently pass.
+This specification describes \textbf{Group 3's} XRPL remittance prototype as implemented in this GitHub fork (Karabo22Tigedi / FSE-Project). An earlier GitHub sketch by Kerry-Lynn Whyte established FastAPI, SQLite, Redis Streams, and Testnet Payments. This document is about \emph{our} patched system, not that sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and twenty-nine automated tests currently pass. The examiner-facing product is the Vite React UI in \texttt{frontend/} (Section~\ref{sec:ui}), talking to FastAPI on port 8000.
 
 \section{Business problem}
 Cross-border remittances move household income to people who often collect cash at an agent. Western Union and MoneyGram are the familiar brands: the sender pays rand at an agent or online, the operator takes a fee, and the recipient collects cash on the other side after showing identification. Those operators are large, licensed money transmitters with agent networks in many countries. They are also expensive on small sends, and the price the customer sees is often a mix of a posted fee and a worse-than-mid-market exchange rate.
@@ -22,7 +22,7 @@ Stablecoins such as RLUSD (a US-dollar token issued on the XRP Ledger) can move 
 What we do claim, as a design, is narrower. A quoted fee of a fixed rand amount plus a percentage, plus a published FX margin on the conversion rate, is easier to audit than an opaque corridor tariff. A 15-minute quote with an explicit cancel path stops abandoned drafts from consuming a sender's daily limit. An on-chain Payment with a stored transaction hash gives the recipient something they can look up on a Testnet explorer. Those are the product bets this specification implements.
 
 \section{User journey}
-The journey follows the brief \citep{UCTBrief2026} and is implemented end-to-end on the API (the web UI in Section~\ref{sec:ui} is planned, not yet built).
+The journey follows the brief \citep{UCTBrief2026} and is implemented end-to-end on the API and on the web UI in Section~\ref{sec:ui}.
 
 \begin{enumerate}
   \item A customer registers (\texttt{POST /auth/register}) and logs in (\texttt{POST /auth/login}). The same customer account can send or receive; role is \texttt{customer} or \texttt{admin}, not two person types.
@@ -36,7 +36,7 @@ The journey follows the brief \citep{UCTBrief2026} and is implemented end-to-end
   \item The recipient requests a cash-out to USD or ZAR. Fiat payout is still simulated, but complete submits a Payment of the reserved UCTUSD from the recipient custodial account to the official UCTUSD issuer (burn/redeem). \texttt{on\_chain\_balance} excludes completed cash-outs. Failed cash-outs refund spendable balance.
 \end{enumerate}
 
-Anyone with a tracking reference who is the sender, the linked recipient, or an admin can call \texttt{GET /remittances/track/\{ref\}}.
+Anyone with a tracking reference who is the sender, the linked recipient, or an admin can open \texttt{/app/track/\{ref\}} or call \texttt{GET /remittances/track/\{ref\}}.
 
 \section{Functional requirements}
 Table~\ref{tab:fr} maps the brief's required behaviour to \emph{our} endpoints. Interactive OpenAPI lives at \texttt{/docs}. \texttt{GET /health} is unauthenticated.
@@ -82,7 +82,9 @@ Redis Stream \texttt{settlement\_messages};
 Custodial wallet &
 \texttt{GET /wallet/me}: \texttt{balance\_rlusd} = spendable;
 also \texttt{spendable\_balance} and \texttt{on\_chain\_balance}
-(excludes completed cash-outs). \\
+(excludes completed cash-outs).
+Admin \texttt{GET /admin/platform-wallet} reports treasury address,
+TrustLine, and UCTUSD liquidity. \\
 Simulated cash-out &
 \texttt{POST /cash-outs}; \texttt{GET /cash-outs/me};
 admin list/approve/complete/fail. USD and ZAR only. \\
@@ -167,7 +169,7 @@ Usage sums the sender's ZAR since the start of the UTC day or calendar month, wi
 
 \section{Architecture}
 \label{sec:arch}
-Figure~\ref{fig:arch} is the runtime. FastAPI serves JSON. SQLAlchemy talks to SQLite through Alembic revisions \texttt{0001\_initial} and \texttt{0002\_quote\_session}. Redis is transport for settlement, not the source of truth. The settlement worker (the same function as \texttt{POST /admin/settlement/run} and \texttt{python -m scripts.run\_settlement\_worker}) signs Testnet Payments with \texttt{xrpl-py}. CORS is enabled for local UI origins (Vite 5173, React 3000, and the API host).
+Figure~\ref{fig:arch} is the runtime. The Vite React app on 5173 (or 5174 if 5173 is busy) is the marked web UI. FastAPI serves JSON. SQLAlchemy talks to SQLite through Alembic revisions \texttt{0001\_initial}, \texttt{0002\_quote\_session}, and \texttt{0003\_cash\_out\_burn}. Redis is transport for settlement, not the source of truth. The settlement worker (the same function as \texttt{POST /admin/settlement/run} and \texttt{python -m scripts.run\_settlement\_worker}) signs Testnet Payments with \texttt{xrpl-py}. CORS allows the local Vite and API origins, including loopback.
 
 \begin{figure}[ht]
 \centering
@@ -176,9 +178,9 @@ Figure~\ref{fig:arch} is the runtime. FastAPI serves JSON. SQLAlchemy talks to S
   box/.style={draw, rounded corners, align=center, inner sep=5pt, minimum height=1.05cm},
   arr/.style={-{Latex}, thick}
 ]
-\node[box, minimum width=2.6cm] (ui) {Planned web UI\\(localhost CORS)};
+\node[box, minimum width=2.6cm] (ui) {Vite React UI\\ports 5173 / 5174};
 \node[box, minimum width=2.8cm, right=0.55cm of ui] (api) {FastAPI REST\\OpenAPI \texttt{/docs}};
-\node[box, minimum width=2.4cm, right=0.55cm of api] (db) {SQLite\\Alembic 0001+0002};
+\node[box, minimum width=2.4cm, right=0.55cm of api] (db) {SQLite\\Alembic 0001--0003};
 \node[box, minimum width=2.3cm, below=0.7cm of api] (redis) {Redis Streams\\outbox + PEL};
 \node[box, minimum width=2.6cm, left=0.55cm of redis] (fx) {open.er-api.com\\5 min cache};
 \node[box, minimum width=2.6cm, right=0.55cm of redis] (worker) {Settlement worker\\XRPL Testnet};
@@ -224,6 +226,8 @@ Figure~\ref{fig:flow} is the money path the brief asks for.
 
 Wallet design is a hybrid of the brief's two options \citep{UCTBrief2026,UCTResources2026}. One \texttt{PlatformWallet} holds scarce IOU liquidity. Each recipient still receives a real custodial Testnet account, generated lazily on first settlement, so FR-style ``individually attributable Payment + hash'' is a genuine ledger transaction rather than a book entry that pretends to be one. Address and encrypted secret are committed \emph{before} TrustSet. If an address exists but the trust line is not yet established, the worker reuses the stored secret; it does not mint a second wallet.
 
+XRP is the only asset an XRPL account holds natively; UCTUSD and RLUSD are issued tokens (IOUs). A holder can accept an IOU only after a TrustSet opens a trust line to the issuer, which reserves a little XRP (locked, not spent) \citep{UCTResources2026}. Rippling lets the same issued token move between holders of that issuer without an explicit hop back through the issuer: Default Ripple is normally on for the issuer and off for ordinary holders. We do not implement rippling ourselves; settlement is a direct treasury-to-recipient Payment after TrustSet.
+
 \section{Cash-in, UCTUSD settlement, and cash-out}
 
 \subsection{Cash-in}
@@ -260,7 +264,7 @@ Encrypted columns are stored as \texttt{VARCHAR(500)} (Fernet ciphertext). Exist
 A remittance points at one sender and one beneficiary. A settlement message points at one remittance. A recipient wallet is 1:1 with a user. Cash-out requests belong to the recipient user, not to a remittance row: the recipient may cash out aggregated RLUSD, not a single inbound Payment. Platform wallet is a singleton.
 
 \section{API overview}
-The API is JSON over HTTP with Bearer sessions. FastAPI emits Swagger UI at \url{http://127.0.0.1:8000/docs} and the OpenAPI schema at \texttt{/openapi.json}. Route prefixes: auth, users, kyc, beneficiaries, remittances, limits, wallet, cash-outs, and admin (fees, limits, settlement). CORS defaults allow local Vite (port 5173), local React (port 3000), and the API host on 8000, overridable with \texttt{CORS\_ORIGINS} as a JSON list. Credentials are allowed.
+The API is JSON over HTTP with Bearer sessions. FastAPI emits Swagger UI at \url{http://127.0.0.1:8000/docs} and the OpenAPI schema at \texttt{/openapi.json}. Route prefixes: auth, users, kyc, beneficiaries, remittances, limits, wallet, cash-outs, and admin (fees, limits, settlement, platform wallet). CORS defaults allow Vite on 5173 and 5174 (\texttt{localhost} and \texttt{127.0.0.1}), local React on 3000, and the API host on 8000, overridable with \texttt{CORS\_ORIGINS} as a JSON list. Credentials are allowed. The SPA stores the bearer token in \texttt{sessionStorage} and sends it as \texttt{Authorization: Bearer}.
 
 Authz in short: customers act on their own resources; KYC-approved customers create quotes, beneficiaries, cash-in, and cash-outs; admins review KYC, confirm cash-in, run and retry settlement, action cash-outs, and edit fees and tiers. Tracking is visible to the sender, the linked recipient, or an admin (403 otherwise; 404 if the ref does not exist).
 
@@ -269,7 +273,7 @@ Passwords are bcrypt via passlib and never stored in plaintext. Login returns a 
 
 Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
 
-CORS is a demo convenience for a future SPA, not an authentication mechanism. Production would restrict origins, put keys in a secrets manager, rotate Fernet keys with a dual-decrypt window, and stop using SQLite as the vault for encrypted seeds.
+CORS is a demo convenience for the local Vite origin, not an authentication mechanism. Production would restrict origins, put keys in a secrets manager, rotate Fernet keys with a dual-decrypt window, and stop using SQLite as the vault for encrypted seeds.
 
 \newpage
 \section{Regulatory considerations}
@@ -290,7 +294,7 @@ Cross-border rand payments sit inside South African exchange-control and authori
 \paragraph{Licensing.}
 A commercial Western Union competitor in South Africa typically needs a FICA accountable-institution posture, Reserve Bank authorisation where the activity is a remittance or payment service, and---if offering crypto custody or exchange---the applicable FSCA crypto-asset authorisation. Agent cash-in/out may also engage payment-system and consumer-protection rules (clear fees, receipts, complaint handling). This coursework prototype is not licensed and must not be pointed at real customer funds or Mainnet credentials \citep{UCTBrief2026}.
 
-Consumer protection and safeguarding follow from the same honesty: quoted fees should match charged fees (our quote locks the breakdown for 15 minutes); customer secrets should not leak (Section~11); and simulated balances must not be described as redeemable bank money. We do not hold client fiat in a trust account because we never collect real fiat. A production remittance UI would still need a pre-contract fee disclosure, a receipt with the tracking reference, and a complaints path---none of which a Swagger page substitutes for. The planned screens in Section~\ref{sec:ui} are where those disclosures would live.
+Consumer protection and safeguarding follow from the same honesty: quoted fees should match charged fees (our quote locks the breakdown for 15 minutes); customer secrets should not leak (Section~11); and simulated balances must not be described as redeemable bank money. We do not hold client fiat in a trust account because we never collect real fiat. The web UI in Section~\ref{sec:ui} shows the locked fee breakdown, the \texttt{MG} tracking reference, and an academic contact block (course, group, campus, repository). That is coursework disclosure, not a licensed complaints desk.
 
 \section{Assumptions and limitations}
 Assumptions we adopted on purpose: one customer identity for send and receive; admins only via \texttt{scripts/create\_admin.py}; one KYC row with overwrite-on-resubmit until approved; beneficiary auto-match rather than invite-to-register; hybrid treasury plus per-recipient XRPL accounts; issuer address and currency code as \texttt{.env} so UCTUSD versus RLUSD is a config change \citep{UCTResources2026}; Redis Streams as the queue; SQLite for development; quote TTL of 900 seconds.
@@ -307,73 +311,79 @@ Remaining limitations of \emph{this} fork, not of the old sketch:
 
 \section{Performance summary}
 \label{sec:perf}
-We cite Kerry-Lynn Whyte's Locust and settlement timings as a \textbf{baseline}, not as a re-run of this fork. The numbers were taken on 31~August and 1~September 2026 against a local single-process uvicorn and SQLite, and are recorded in \texttt{PERFORMANCE\_TESTING.md}. They remain useful as an order-of-magnitude picture of the same FastAPI surface.
+HTTP load was re-run on this fork on 7~September 2026 (50 concurrent synthetic users, 60~s, Windows, single-process uvicorn and SQLite). The tables and charts live in \texttt{PERFORMANCE\_TESTING.md} and \texttt{backend/perf/results/}. Five live Testnet Payments from 1~September 2026 remain the settlement sample---that path was not repeated against the demo treasury.
 
-The HTTP mix (50 concurrent synthetic users, 60~s, 2{,}324 requests, zero failures) delivered about 39~req/s. Read endpoints sat in the high-single-digit milliseconds at the median; \texttt{POST /remittances} about 11~ms median. \texttt{POST /auth/login} was the outlier at about 400~ms median because bcrypt is deliberately expensive. Redis Stream enqueue measured about 517 messages/s for 200 publishes. Five real Testnet Payments averaged about 12.4~s each---ledger close time, not application CPU. We have not repeated Locust on the patched worker (PEL reclaim, outbox, hashed sessions). Relative bottlenecks---bcrypt on login, consensus on settlement---are unchanged in kind.
+The 7~September mix delivered 2{,}218 requests, zero failures, about 37~req/s. Authenticated reads sat around 20--33~ms at the median; \texttt{POST /remittances} about 66~ms median. \texttt{POST /auth/login} remains the outlier (about 850~ms median) because bcrypt is deliberately expensive. Queue enqueue on this OneDrive-backed SQLite host measured about 23 messages/s (a 1~September Mac sample of the same Redis path was 517~msg/s). Five real Testnet Payments averaged about 12.4~s each---ledger close time, not application CPU. Relative bottlenecks---bcrypt on login, consensus on settlement---are unchanged in kind.
 
 \newpage
-\section{Planned web UI}
+\section{Web UI}
 \label{sec:ui}
-The backend is API-complete; the brief still requires a web application \citep{UCTBrief2026}. This page is the screen map. The UI may be any SPA that speaks JSON (for example Vue on 5173 or React on 3000). CORS is already open for those origins. No framework is mandated here.
+The marked web application is \texttt{frontend/}: Vite, React, TypeScript, and React Router. It calls the FastAPI JSON API with \texttt{VITE\_API\_URL} (default \url{http://127.0.0.1:8000}). The landing page is a marketing scroll (hero, quote explainer as \texttt{\#faq}, beneficiary/scan/methods, contact as \texttt{\#contact}, footer). Login, register, and the authenticated shells use a DASH-style grid-trail background. Landing motion is GSAP ScrollTrigger plus original Three.js objects---not third-party brand assets.
 
-Table~\ref{tab:ui} is the screen map. Empty states matter: unverified senders see KYC pending, not a send form; expired quotes show ``expired'' not a cash-in button; a recipient without a Testnet account yet still sees a zero spendable wallet row.
+Table~\ref{tab:ui} is the shipped screen map. The quote screen shows send amount, locked transaction fee, net ZAR after that fee, FX margin, rate, and UCTUSD. Empty states are implemented, not planned: unverified senders see KYC pending, not a send form; expired quotes show expired and hide cash-in; a recipient without a Testnet account yet still sees a zero spendable wallet row; settlement failure shows the worker reason (for example \texttt{tecPATH\_DRY}) rather than a dummy hash.
 
 \begin{table}[H]
 \centering
-\caption{Planned screens mapped to existing endpoints (framework-agnostic).}
+\caption{Shipped screens mapped to routes and endpoints.}
 \label{tab:ui}
 \footnotesize
-\begin{tabular}{@{}p{0.22\textwidth}p{0.34\textwidth}p{0.36\textwidth}@{}}
+\begin{tabular}{@{}p{0.20\textwidth}p{0.22\textwidth}p{0.50\textwidth}@{}}
 \toprule
-\textbf{Screen} & \textbf{What the user sees} & \textbf{Endpoints} \\
+\textbf{Screen} & \textbf{Route} & \textbf{Endpoints} \\
 \midrule
+Landing / FAQ / Contact &
+\texttt{/}, \texttt{\#faq}, \texttt{\#contact} &
+static; Contact states course, group, campus, GitHub \\
 Register / login &
-Name, email, mobile, password; logout &
+\texttt{/register}, \texttt{/login} &
 \texttt{POST /auth/register}, \texttt{/login}, \texttt{/logout} \\
 Sender home &
-Profile, KYC badge, remaining daily/monthly ZAR &
+\texttt{/app} &
 \texttt{GET /users/me}, \texttt{/kyc/me/status}, \texttt{/limits/me} \\
+Profile &
+\texttt{/app/profile} &
+\texttt{GET}/\texttt{PATCH /users/me} \\
 KYC form &
-Brief fields; resubmit if rejected &
+\texttt{/app/kyc} &
 \texttt{POST /kyc}, \texttt{GET /kyc/me} \\
 Beneficiaries &
-List and add; linked vs unlinked &
+\texttt{/app/beneficiaries} &
 \texttt{GET}/\texttt{POST /beneficiaries} \\
-New quote &
-ZAR, beneficiary, locked fee/FX/RLUSD, 15~min timer, \texttt{MG} ref &
-\texttt{POST /remittances} \\
-Quote actions &
-Cancel or choose cash-in method &
-\texttt{POST \ldots/cancel}, \texttt{\ldots/cash-in} \\
-Track / history &
-Status, hash once settled &
+New quote / quote &
+\texttt{/app/send}, \texttt{/app/send/\{id\}} &
+\texttt{POST /remittances}, \texttt{\ldots/cancel}, \texttt{\ldots/cash-in} \\
+History / track &
+\texttt{/app/history}, \texttt{/app/track/\{ref\}} &
 \texttt{GET /remittances/me}, \texttt{/remittances/track/\{ref\}} \\
 Recipient wallet &
-Spendable vs on-chain, address, inbound list, cash-outs &
+\texttt{/app/wallet} &
 \texttt{GET /wallet/me} \\
 Cash-out &
-USD or ZAR amount; pending statuses &
+\texttt{/app/cash-out} &
 \texttt{POST /cash-outs}, \texttt{GET /cash-outs/me} \\
 Admin KYC &
-Queue, approve, reject with reason &
+\texttt{/admin/kyc} &
 \texttt{GET /kyc}, \texttt{POST \ldots/approve\textbar reject} \\
 Admin cash-in &
-Pending methods; confirm receipt &
+\texttt{/admin/cash-in} &
 \texttt{GET /remittances}, \texttt{POST \ldots/confirm-cash-in} \\
 Admin settlement &
-Stream ids, retry stuck rows, run worker &
+\texttt{/admin/settlement} &
 \texttt{GET /admin/settlement}, \texttt{POST \ldots/run}, \texttt{\ldots/\{id\}/retry} \\
 Admin cash-out &
-Approve, complete, or fail (refund) &
+\texttt{/admin/cash-out} &
 \texttt{GET /cash-outs}, \texttt{POST \ldots/approve\textbar complete\textbar fail} \\
 Admin config &
-Fees and limit tiers &
+\texttt{/admin/config} &
 \texttt{GET}/\texttt{PUT /admin/fee-config}, \texttt{/admin/limit-tiers} \\
+Platform wallet &
+\texttt{/admin/platform-wallet} &
+\texttt{GET /admin/platform-wallet}; TrustLine helper \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Admins are created with \texttt{scripts/create\_admin.py}, never via public register. Demonstration until the UI exists: Swagger at \texttt{/docs} plus the settlement worker script. That is an API demo, not the marked web application.
+Admins are created with \texttt{scripts/create\_admin.py}, never via public register. The examiner demo is the UI at \url{http://127.0.0.1:5173/} (or 5174) against the API on 8000: register or sign in, KYC, beneficiary, quote, cash-in, admin confirm, settlement run or retry, track, then recipient wallet and optional cash-out. Swagger at \texttt{/docs} remains a developer tool, not the marked product.
 
 \bibliographystyle{apalike}
 \bibliography{../refs}

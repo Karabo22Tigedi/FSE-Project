@@ -167,6 +167,7 @@ export function CashOut() {
           <p className="hint">
             Fee {formatPct(latest.cash_out_fee_percentage)} · rate {formatRate(latest.exchange_rate)}
           </p>
+          <p className="mono hint">Hash {latest.xrpl_burn_tx_hash ?? "—"}</p>
         </article>
       ) : null}
 
@@ -187,6 +188,7 @@ export function CashOut() {
                   {formatFiat(item.fiat_payout_amount, item.fiat_currency)}
                 </p>
                 <p className="hint">{formatOptionalDate(item.created_at)}</p>
+                <p className="mono hint">Hash {item.xrpl_burn_tx_hash ?? "—"}</p>
                 {item.status === "failed" ? (
                   <p className="hint">Failed — reserved UCTUSD was refunded to spendable.</p>
                 ) : null}

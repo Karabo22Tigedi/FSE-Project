@@ -6,7 +6,7 @@
 \groupcover{Group Rationale}
 
 \noindent
-This note is for the group and for anyone marking the repo. It explains, in ordinary language, why remittance giants look the way they do, what this platform is trying to do instead, how the XRP Ledger pieces actually work, what was wrong with the first GitHub sketch, why we patched settlement before quotes, and how to run a demo on Windows. The system of record is this fork (Karabo22Tigedi / FSE-Project), not the sketch. Reports describe the patched API. One hundred and thirteen tests pass.
+This note is for the group and for anyone marking the repo. It explains, in ordinary language, why remittance giants look the way they do, what this platform is trying to do instead, how the XRP Ledger pieces actually work, what was wrong with the first GitHub sketch, why we patched settlement before quotes, and how to run a demo on Windows. The system of record is this fork (Karabo22Tigedi / FSE-Project), not the sketch. Reports describe the patched API. One hundred and twenty-nine tests pass.
 
 \section{How Western Union and MoneyGram work}
 If you have ever sent money home from a South African mall, you already know the shape. You queue at a Western Union or MoneyGram desk, show an ID, fill in the recipient's name and city, and pay rand. The clerk quotes a fee and a payout amount in the other currency. You get a reference number (MTCN at Western Union; a similar reference at MoneyGram). You phone or WhatsApp that number to the recipient. They go to an agent on their side, show ID, and collect cash.
@@ -156,7 +156,7 @@ python -m scripts.run_settlement_worker
 \begin{verbatim}
 python -m pytest -q
 \end{verbatim}
-  Expect 113 passed.
+  Expect 129 passed.
 \end{enumerate}
 
 If settlement is stuck in pending or processing, retry that settlement id as admin. Do not retry completed. If Redis was down during enqueue, retry republishes the outbox row.
@@ -164,7 +164,7 @@ If settlement is stuck in pending or processing, retry that settlement id as adm
 \subsection{Ten-minute marking demo}
 With Redis up, keys set, admin created, and the platform wallet funded: (1)~register sender and recipient; (2)~both submit KYC; (3)~admin approves both; (4)~sender adds the recipient as a beneficiary (mobile/email match); (5)~post a quote under R3{,}000; (6)~show that cancel frees the limit, then create a fresh quote; (7)~cash-in, admin confirm; (8)~run the worker; (9)~recipient wallet shows spendable, hash, and on-chain; (10)~request cash-out, admin complete---spendable already dropped at request; complete burns on-chain so that balance drops too; (11)~fail a second cash-out and show the refund. Optional: cancel is 409 after expiry; retry of completed is 409.
 
-The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 113 passed.
+The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 129 passed.
 
 Compiled reports: \texttt{docs/reports/spec/} and \texttt{docs/reports/rationale/} PDFs. Kerry's Locust tables in \texttt{PERFORMANCE\_TESTING.md} are a baseline from 31~August / 1~September 2026; we did not re-run them on this fork.
 

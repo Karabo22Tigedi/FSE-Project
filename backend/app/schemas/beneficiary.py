@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
+
+from app.schemas.base import SchemaModel
 
 
 class BeneficiaryCreate(BaseModel):
@@ -19,9 +21,7 @@ class BeneficiaryCreate(BaseModel):
         return self
 
 
-class BeneficiaryOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class BeneficiaryOut(SchemaModel):
     id: str
     sender_id: str
     full_name: str

@@ -131,6 +131,8 @@ def test_create_quote_sets_tracking_ref_and_expires_at(client, approved_sender):
     assert resp.status_code == 201
     body = resp.json()
     assert re.fullmatch(r"MG\d{10}", body["tracking_ref"])
+    assert re.search(r"(Z|[+-]\d{2}:\d{2})$", body["expires_at"])
+    assert re.search(r"(Z|[+-]\d{2}:\d{2})$", body["created_at"])
     expires_at = datetime.fromisoformat(body["expires_at"].replace("Z", "+00:00"))
     created_at = datetime.fromisoformat(body["created_at"].replace("Z", "+00:00"))
     ttl = expires_at - created_at

@@ -88,8 +88,17 @@ export function formatRate(value: string): string {
   return n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 }
 
+/** Parse an API timestamp. Naive ISO (no Z or offset) is treated as UTC. */
+export function parseApiDate(iso: string): Date {
+  const value = iso.trim()
+  if (/[zZ]$/.test(value) || /[+-]\d{2}:?\d{2}$/.test(value)) {
+    return new Date(value)
+  }
+  return new Date(`${value}Z`)
+}
+
 export function formatDateTime(iso: string): string {
-  const d = new Date(iso)
+  const d = parseApiDate(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleString("en-ZA", {
     day: "numeric",
@@ -109,11 +118,11 @@ export function todayInput(): string {
 }
 
 export function isExpired(expiresAt: string, now = Date.now()): boolean {
-  return new Date(expiresAt).getTime() <= now
+  return parseApiDate(expiresAt).getTime() <= now
 }
 
 export function formatCountdown(expiresAt: string, now = Date.now()): string {
-  const ms = new Date(expiresAt).getTime() - now
+  const ms = parseApiDate(expiresAt).getTime() - now
   if (ms <= 0) return "Expired"
   const totalSec = Math.floor(ms / 1000)
   const minutes = Math.floor(totalSec / 60)

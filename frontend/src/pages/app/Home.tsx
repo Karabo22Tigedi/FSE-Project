@@ -57,6 +57,11 @@ export function Home() {
             {kyc ? <Badge status={kyc.status} label={kycLabel(kyc.status)} /> : null}
           </div>
           <p className="muted">{me.email}</p>
+          <div className="action-row">
+            <Link className="pill pill--ghost" to="/app/profile">
+              Edit profile
+            </Link>
+          </div>
           {kyc?.status === "rejected" && kyc.rejection_reason ? (
             <p className="banner banner--error">{kyc.rejection_reason}</p>
           ) : null}

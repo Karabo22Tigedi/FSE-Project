@@ -2,7 +2,7 @@
 
 UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte, Liltha Mzamo, Nikola Milosavljevic).
 
-This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances, UCTUSD burn). **128** pytest tests passed on this tree.
+This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances, UCTUSD burn). **129** pytest tests collected on this tree.
 
 Academic prototype only: simulated ZAR cash-in, UCTUSD settlement on the XRP Ledger **Testnet**, simulated fiat cash-out with on-chain burn to issuer. No real customer funds, no Mainnet credentials.
 
@@ -117,4 +117,4 @@ Open http://localhost:5173. Point `VITE_API_URL` at the API if it is not `http:/
 
 ## Performance numbers
 
-[`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is Kerry’s Locust / Testnet baseline (2026-08-31 / 09-01). It was **not** re-run on this patched fork.
+[`PERFORMANCE_TESTING.md`](PERFORMANCE_TESTING.md) is deliverable iv. HTTP load was **re-run on this fork on 2026-09-07** (50 users, 60 s, Windows): 2,218 requests, 0 failures, **37.2 req/s**, login median **850 ms** (bcrypt). Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html). Live XRPL settlement timings remain the **2026-09-01 Testnet sample** (12.4 s/tx); that path was not repeated against the demo treasury.

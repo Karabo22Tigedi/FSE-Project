@@ -1,10 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from app.schemas.base import SchemaModel
 
 
-class IncomingTransferOut(BaseModel):
+class IncomingTransferOut(SchemaModel):
     remittance_id: str
     rlusd_amount: Decimal
     status: str
@@ -13,7 +13,7 @@ class IncomingTransferOut(BaseModel):
     created_at: datetime
 
 
-class CashOutSummaryOut(BaseModel):
+class CashOutSummaryOut(SchemaModel):
     id: str
     rlusd_amount: Decimal
     fiat_currency: str
@@ -24,7 +24,7 @@ class CashOutSummaryOut(BaseModel):
     xrpl_burn_tx_hash: str | None
 
 
-class WalletOut(BaseModel):
+class WalletOut(SchemaModel):
     """FR-27/FR-28: the recipient's custodial wallet.
 
     `balance_rlusd` and `spendable_balance` are the same spendable ledger

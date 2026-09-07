@@ -84,6 +84,13 @@ export function StatusTimeline({
   )
 }
 
+function netZarConverted(zarAmount: string, feeZar: string): string {
+  const send = Number(zarAmount)
+  const fee = Number(feeZar)
+  if (!Number.isFinite(send) || !Number.isFinite(fee)) return zarAmount
+  return ((Math.round(send * 100) - Math.round(fee * 100)) / 100).toFixed(2)
+}
+
 export function QuoteBreakdown({ remittance }: { remittance: Remittance }) {
   return (
     <dl className="kv">
@@ -91,6 +98,8 @@ export function QuoteBreakdown({ remittance }: { remittance: Remittance }) {
       <dd>{formatZar(remittance.zar_amount)}</dd>
       <dt>Locked transaction fee</dt>
       <dd>{formatZar(remittance.transaction_fee_zar)}</dd>
+      <dt>Net amount converted</dt>
+      <dd>{formatZar(netZarConverted(remittance.zar_amount, remittance.transaction_fee_zar))}</dd>
       <dt>FX margin</dt>
       <dd>{formatPct(remittance.fx_margin_percentage)}</dd>
       <dt>Exchange rate</dt>

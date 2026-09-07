@@ -169,12 +169,6 @@ export function Beneficiaries() {
               >
                 <option value="USD">USD</option>
                 <option value="ZAR">ZAR</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="MWK">MWK</option>
-                <option value="ZMW">ZMW</option>
-                <option value="BWP">BWP</option>
-                <option value="NAD">NAD</option>
               </select>
             </label>
             <label>

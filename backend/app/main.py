@@ -1,14 +1,20 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
 from app.models import *  # noqa: F401,F403 - register models before migrations
+from app.schemas.base import serialize_utc_datetime
 from app.services.bootstrap import seed_defaults
+
+# SQLite returns naive datetimes; treat them as UTC in jsonable_encoder paths too.
+ENCODERS_BY_TYPE[datetime] = serialize_utc_datetime
 
 
 def run_migrations() -> None:

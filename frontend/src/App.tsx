@@ -13,6 +13,7 @@ import { CashOut } from "./pages/app/CashOut"
 import { History } from "./pages/app/History"
 import { Home } from "./pages/app/Home"
 import { Kyc } from "./pages/app/Kyc"
+import { Profile } from "./pages/app/Profile"
 import { Quote } from "./pages/app/Quote"
 import { Send } from "./pages/app/Send"
 import { Track } from "./pages/app/Track"
@@ -51,6 +52,14 @@ export default function App() {
             element={
               <Customer>
                 <Home />
+              </Customer>
+            }
+          />
+          <Route
+            path="/app/profile"
+            element={
+              <Customer>
+                <Profile />
               </Customer>
             }
           />

@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.models.cash_out import CashOutStatus
+from app.schemas.base import SchemaModel
 
 
 class CashOutRequestCreate(BaseModel):
@@ -11,9 +12,7 @@ class CashOutRequestCreate(BaseModel):
     fiat_currency: str = Field(min_length=3, max_length=10)
 
 
-class CashOutOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class CashOutOut(SchemaModel):
     id: str
     user_id: str
     rlusd_amount: Decimal

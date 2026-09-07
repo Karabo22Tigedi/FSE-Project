@@ -42,6 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Nav />
       <aside className="app-side">
         <Link to="/app">Home</Link>
+        <Link to="/app/profile">Profile</Link>
         <Link to="/app/kyc">KYC</Link>
         <Link to="/app/beneficiaries">Beneficiaries</Link>
         <Link to="/app/send">New quote</Link>

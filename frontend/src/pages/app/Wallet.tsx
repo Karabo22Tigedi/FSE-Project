@@ -153,6 +153,7 @@ export function Wallet() {
                       Payout {formatFiat(tx.fiat_payout_amount, tx.fiat_currency)} ·{" "}
                       {formatOptionalDate(tx.completed_at ?? tx.created_at)}
                     </p>
+                    <p className="mono hint">Hash {tx.xrpl_burn_tx_hash ?? "—"}</p>
                   </div>
                 ))}
               </div>

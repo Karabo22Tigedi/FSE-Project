@@ -12,11 +12,15 @@ provisions a real XRPL account - those make live Testnet network calls,
 which would measure faucet/ledger latency rather than this API's own
 performance. That's measured separately by scripts/benchmark_settlement.py.
 
-Usage:
+Quote amounts are R100–R500 so they sit above the default R25 fixed fee
+(this fork returns 422 when fees consume the principal).
+
+Usage (from backend/, Windows venv):
     python -m scripts.seed_synthetic_users 50
-    locust -f perf/locustfile.py --host=http://127.0.0.1:8000 \
-        --users 50 --spawn-rate 10 --run-time 60s --headless \
-        --csv=perf/results/run1 --html=perf/results/run1.html
+    python -m locust -f perf/locustfile.py --host=http://127.0.0.1:8000 `
+        --users 50 --spawn-rate 10 --run-time 60s --headless `
+        --csv=perf/results/run2 --html=perf/results/run2.html
+    python perf/render_charts.py
 """
 
 import itertools
@@ -75,7 +79,10 @@ class RemittancePlatformUser(HttpUser):
 
     @task(3)
     def create_quote(self):
-        zar_amount = round(random.uniform(10, 100), 2)
+        # Stay above the default R25 fixed fee (fork rejects sends whose
+        # fees consume the principal). R100–R500 is a realistic quote size
+        # and will not 422 on the default fee_config.
+        zar_amount = round(random.uniform(100, 500), 2)
         self.client.post(
             "/remittances",
             json={"beneficiary_id": self.beneficiary_id, "zar_amount": f"{zar_amount:.2f}"},

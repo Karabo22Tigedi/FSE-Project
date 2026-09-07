@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.models.remittance import CashInMethod, RemittanceStatus
+from app.schemas.base import SchemaModel
 
 
 class RemittanceQuoteRequest(BaseModel):
@@ -15,9 +16,7 @@ class CashInInitiateRequest(BaseModel):
     method: CashInMethod
 
 
-class RemittanceOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class RemittanceOut(SchemaModel):
     id: str
     tracking_ref: str
     sender_id: str

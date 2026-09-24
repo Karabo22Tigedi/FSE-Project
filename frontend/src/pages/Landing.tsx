@@ -41,8 +41,6 @@ const CONTACT_TILES = [
   "Kerry-Lynn Whyte",
   "Liltha Mzamo",
   "Nikola Milosavljevic",
-  "UCT ECO5040W",
-  "XRPL Testnet",
 ] as const
 const CONTACT_FACTS = [
   {
@@ -389,8 +387,8 @@ export function Landing() {
         <div className="payment__wrapper">
           <h1 className="payment__heading">Contact</h1>
           <div className="payment__text">
-            UCT ECO5040W Group 3. Academic remittance prototype — no customer inbox, no Visa, no
-            live funds.
+            University of Cape Town · ECO5040W Group 3. Academic remittance prototype — no
+            customer inbox, no Visa, no live funds.
           </div>
           <div className="contact-facts">
             {CONTACT_FACTS.map((fact) => (

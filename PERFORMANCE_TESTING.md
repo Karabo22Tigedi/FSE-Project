@@ -49,11 +49,28 @@ Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) becaus
 
 **Bottleneck — XRPL ledger close time:** enqueueing is not the ceiling. Each settlement submits a Payment and waits for Testnet to close and validate (`submit_and_wait`). XRPL targets a ~3–5 s ledger; the 17.5 s average includes Testnet jitter and `LastLedgerSequence` retries (the 2026-08-31 sample was also ~17 s/tx; 2026-09-01 was 12.4 s/tx). Application code in `app/services/settlement.py` cannot shrink ledger consensus. If volume ever needed to exceed one-in-flight per worker, add consumers to the `settlement_workers` Redis group rather than micro-optimising the per-tx path.
 
+### 2a. Larger settlement sample (re-run 2026-09-24)
+
+The 2026-09-07 settlement sample was only five payments, so `scripts.benchmark_settlement 15` was re-run on **2026-09-24** to give the timing a spread. Host: macOS (arm64), Python 3.10.13, Redis 8.10.1 on `localhost:6379`, uvicorn running alongside, SQLite on local disk (not OneDrive). Same script and same platform treasury wallet as before; the recipient's XRPL account and TrustLine already existed, so no faucet or TrustSet time is in these numbers. The script also re-ran the 200-message enqueue timing.
+
+| Metric | Result |
+|---|---|
+| Message-queue enqueue throughput | 200 messages in 3.228 s → **62.0 msg/s** |
+| Settlement processing, real Testnet Payments | 15 in 226.158 s → **15.08 s/transaction avg** |
+| Settlement success / failure | **15 / 15 completed, 0 failed** (100%); all 15 transaction hashes stored |
+| Per-transaction spread (14 measurable gaps) | min 12.4 s · median 15.7 s · mean 15.3 s · p95 16.1 s · max 16.2 s · stdev 1.2 s |
+| Treasury reconciliation | UCTUSD 99,428.015145 → 99,405.988845: a drop of 22.026300, exactly the sum of the 15 payment amounts |
+
+Method note: the script prints only the total and the average. Per-transaction durations were derived from the gaps between consecutive `settlement_messages.processed_at` timestamps (the worker settles one message at a time). The first payment's duration cannot be separated from script setup, so it is excluded from the spread; the 15.08 s average is the script's own figure across all 15.
+
+Reading it: the 15-payment average (15.1 s) sits between the two earlier samples (12.4 s and 17.5 s per transaction), and individual payments cluster around two values (about 12.4 s and about 15.5–16 s), which fits ledger-close timing rather than application work. Enqueue was 62 msg/s here against 29.2 msg/s on the OneDrive-backed Windows host and 517 msg/s in the 2026-09-01 sketch sample; this run did not isolate why the fork is slower than the sketch (the extra commit per enqueue for the outbox is the likely cost, but that is not measured here). The benchmark leaves 15 settled `benchmark-sender` remittances in the development database, and the treasury 22.03 UCTUSD lower.
+
 ## 3. Concurrent-use behaviour and failure rates
 
 - 0 failures across the 50-user, 60 s HTTP run (§1). HTTP success rate **100%** (2,218 / 2,218).
 - An earlier 60 s attempt used the sketch locust mix (R10–R100). About 18% of `POST /remittances` returned 422 because the default R25 fee consumed the principal — a correctness guard on this fork, not an overload failure. The locustfile now uses R100–R500; that mix is what §1 reports.
-- Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5.
+- Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5, and the 2026-09-24 sample (§2a) was **15/15**.
+- Not load-tested: concurrent settlement (the worker handles one message at a time) and concurrent quotes from a single sender (the limits race noted in the specification's limitations). Concurrency in §1 is 50 simultaneous HTTP users.
 - Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **132** pytest tests.
 
 ## How to reproduce (Windows)

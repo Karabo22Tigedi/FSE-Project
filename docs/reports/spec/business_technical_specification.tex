@@ -8,7 +8,7 @@
 \groupcover{Business and Technical Specification}
 
 \noindent
-This specification describes \textbf{Group 3's} XRPL remittance prototype as implemented in this GitHub fork (Karabo22Tigedi / FSE-Project). An earlier GitHub sketch by Kerry-Lynn Whyte established FastAPI, SQLite, Redis Streams, and Testnet Payments. This document is about \emph{our} patched system, not that sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and twenty-nine automated tests currently pass. The examiner-facing product is the Vite React UI in \texttt{frontend/} (Section~\ref{sec:ui}), talking to FastAPI on port 8000.
+This specification describes \textbf{Group 3's} XRPL remittance prototype as implemented in this GitHub fork (Karabo22Tigedi / FSE-Project). An earlier GitHub sketch by Kerry-Lynn Whyte established FastAPI, SQLite, Redis Streams, and Testnet Payments. This document is about \emph{our} patched system, not that sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and thirty-two automated tests currently pass. The examiner-facing product is the Vite React UI in \texttt{frontend/} (Section~\ref{sec:ui}), talking to FastAPI on port 8000.
 
 \section{Business problem}
 Cross-border remittances move household income to people who often collect cash at an agent. Western Union and MoneyGram are the familiar brands: the sender pays rand at an agent or online, the operator takes a fee, and the recipient collects cash on the other side after showing identification. Those operators are large, licensed money transmitters with agent networks in many countries. They are also expensive on small sends, and the price the customer sees is often a mix of a posted fee and a worse-than-mid-market exchange rate.
@@ -52,11 +52,12 @@ Table~\ref{tab:fr} maps the brief's required behaviour to \emph{our} endpoints. 
 \midrule
 Register, login, logout, profile &
 \texttt{POST /auth/register}, \texttt{/auth/login}, \texttt{/auth/logout};
-\texttt{GET}/\texttt{PATCH /users/me}. Passwords bcrypt; sessions hashed at rest. \\
+\texttt{GET}/\texttt{PATCH /users/me}. Passwords bcrypt; sessions hashed at rest.
+Mobile numbers must be 8--15 digits with an optional leading \texttt{+}; spaces and hyphens are stripped. \\
 Mock KYC + admin review &
 \texttt{POST /kyc}; \texttt{GET /kyc/me}, \texttt{/kyc/me/status};
 admin \texttt{GET /kyc}, \texttt{POST /kyc/\{id\}/approve\textbar reject}.
-ID number encrypted with the KYC Fernet key. \\
+ID number is 6--20 characters and encrypted with the KYC Fernet key. \\
 Beneficiaries &
 \texttt{POST}/\texttt{GET /beneficiaries}. Auto-link on mobile/email. \\
 Quote, fees, limits &
@@ -293,7 +294,7 @@ Runtime schema is Alembic, not \texttt{create\_all} alone. FastAPI lifespan runs
   \item \texttt{fee\_config}, \texttt{limit\_tiers} --- singleton fees; unverified/verified caps.
 \end{itemize}
 
-Encrypted columns are stored as \texttt{VARCHAR(500)} (Fernet ciphertext). Existing SQLite files created only with \texttt{create\_all} have no \texttt{alembic\_version} table and will fail upgrade; demo databases should start empty and migrate.
+Encrypted columns are stored as \texttt{VARCHAR(500)} (Fernet ciphertext). Existing SQLite files created only with \texttt{create\_all} have no \texttt{alembic\_version} table and will fail upgrade; demo databases should start empty and migrate. A database left half-migrated by an interrupted upgrade fails the same way, because Alembic treats SQLite DDL as non-transactional: back it up and reconcile it by hand, or start again.
 
 \section{API overview}
 The API is JSON over HTTP with Bearer sessions. FastAPI emits Swagger UI at \url{http://127.0.0.1:8000/docs} and the OpenAPI schema at \texttt{/openapi.json}. Route prefixes: auth, users, kyc, beneficiaries, remittances, limits, wallet, cash-outs, and admin (fees, limits, settlement, platform wallet). CORS defaults allow Vite on 5173 and 5174 (\texttt{localhost} and \texttt{127.0.0.1}), local React on 3000, and the API host on 8000, overridable with \texttt{CORS\_ORIGINS} as a JSON list. Credentials are allowed. The SPA stores the bearer token in \texttt{sessionStorage} and sends it as \texttt{Authorization: Bearer}.
@@ -303,7 +304,7 @@ Authz in short: customers act on their own resources; KYC-approved customers cre
 \section{Security}
 Passwords are bcrypt via passlib and never stored in plaintext. Login returns a urlsafe bearer token once; the database stores only \texttt{SHA-256} of that token. Logout sets \texttt{revoked\_at}. Opaque sessions were chosen over JWT because this is a single FastAPI process: logout must actually revoke access, which a signed JWT cannot do without a server-side denylist that looks like the sessions table anyway.
 
-Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
+Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path, and the wallet and platform-wallet response models have no secret field, so a private key cannot be serialised into an API response even by mistake. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
 
 CORS is a demo convenience for the local Vite origin, not an authentication mechanism. Production would restrict origins, put keys in a secrets manager, rotate Fernet keys with a dual-decrypt window, and stop using SQLite as the vault for encrypted seeds.
 
@@ -329,7 +330,7 @@ A commercial Western Union competitor in South Africa typically needs a FICA acc
 Consumer protection and safeguarding follow from the same honesty: quoted fees should match charged fees (our quote locks the breakdown for 15 minutes); customer secrets should not leak (Section~11); and simulated balances must not be described as redeemable bank money. We do not hold client fiat in a trust account because we never collect real fiat. The web UI in Section~\ref{sec:ui} shows the locked fee breakdown, the \texttt{MG} tracking reference, and an academic contact block (course, group, campus, repository). That is coursework disclosure, not a licensed complaints desk.
 
 \section{Assumptions and limitations}
-Assumptions we adopted on purpose: one customer identity for send and receive; admins only via \texttt{scripts/create\_admin.py}; one KYC row with overwrite-on-resubmit until approved; beneficiary auto-match rather than invite-to-register; hybrid treasury plus per-recipient XRPL accounts; issuer address and currency code as \texttt{.env} so UCTUSD versus RLUSD is a config change \citep{UCTResources2026}; Redis Streams as the queue; SQLite for development; quote TTL of 900 seconds.
+Assumptions we adopted on purpose: one customer identity for send and receive; admins only via \texttt{scripts/create\_admin.py}; one KYC row with overwrite-on-resubmit until approved; beneficiary auto-match rather than invite-to-register; hybrid treasury plus per-recipient XRPL accounts; issuer address and currency code as \texttt{.env} so UCTUSD versus RLUSD is a config change \citep{UCTResources2026}; Redis Streams as the queue; SQLite for development; quote TTL of 900 seconds. Mobile and identification numbers are checked for format only, and generically (8--15 digits; 6--20 characters), because a beneficiary's country and an applicant's nationality are free text: a South-Africa-only rule (\texttt{+27}, a 13-digit ID with checksum) would reject legitimate foreign recipients and passport holders.
 
 Remaining limitations of \emph{this} fork, not of the old sketch:
 \begin{itemize}
@@ -339,6 +340,8 @@ Remaining limitations of \emph{this} fork, not of the old sketch:
   \item Redis is required at runtime and in pytest.
   \item Login latency is dominated by bcrypt (see Section~\ref{sec:perf}).
   \item No AML monitoring product, no sanctions screening, no production key-management service.
+  \item Format validation is not verification: there is no OTP for mobile numbers and no Home Affairs or passport check on identification numbers.
+  \item The seeding and smoke-test scripts raise the verified-tier caps so their own runs are not blocked, and do not restore them. Caps must be reset to R3{,}000 / R25{,}000 before a demo; a development database was found still holding the raised caps.
   \item Daily/monthly limit checks and the quote insert are separate steps with no row lock between them; two concurrent quote requests from the same sender could both read usage under the limit and jointly exceed it. Acceptable for a single-process academic prototype, not for a production ledger.
 \end{itemize}
 
@@ -354,6 +357,8 @@ The HTTP mix delivered 2{,}218 requests, zero failures, about 37~req/s. Authenti
 The marked web application is \texttt{frontend/}: Vite, React, TypeScript, and React Router. It calls the FastAPI JSON API with \texttt{VITE\_API\_URL} (default \url{http://127.0.0.1:8000}). The landing page is a marketing scroll (hero, quote explainer as \texttt{\#faq}, beneficiary/scan/methods, contact as \texttt{\#contact}, footer). Login, register, and the authenticated shells use a DASH-style grid-trail background. Landing motion is GSAP ScrollTrigger plus original Three.js objects---not third-party brand assets.
 
 Table~\ref{tab:ui} is the shipped screen map. The quote screen shows send amount, locked transaction fee, net ZAR after that fee, FX margin, rate, and UCTUSD. Empty states are implemented, not planned: unverified senders see KYC pending, not a send form; expired quotes show expired and hide cash-in; a recipient without a Testnet account yet still sees a zero spendable wallet row; settlement failure shows the worker reason (for example \texttt{tecPATH\_DRY}) rather than a dummy hash.
+
+Navigation is a sidebar of icon tiles grouped into Account and Admin sections, with the current page highlighted. Two confirmations sit on top of the API's own checks, which stay authoritative: the send form asks the sender to confirm amount and beneficiary before a quote is locked, and an admin who approves or rejects KYC gets a dialog naming the applicant and the outcome, in addition to the inline banner. Status badges use solid fills with one colour per meaning, and \texttt{approved} is deliberately not the colour of \texttt{completed} or \texttt{settled}, because both appear side by side in the cash-out queue. The beneficiaries screen shows the add form and the saved list side by side, so the Linked or Unlinked badge is visible next to the form.
 
 \begin{table}[H]
 \centering

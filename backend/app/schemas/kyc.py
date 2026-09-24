@@ -4,15 +4,16 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.models.kyc import KYCStatus
 from app.schemas.base import SchemaModel
+from app.schemas.validators import MobileNumber
 
 
 class KYCSubmit(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     date_of_birth: date
     nationality: str = Field(min_length=1, max_length=100)
-    identification_number: str = Field(min_length=1, max_length=100)
+    identification_number: str = Field(min_length=6, max_length=20)
     residential_address: str = Field(min_length=1, max_length=1000)
-    mobile_number: str = Field(min_length=5, max_length=32)
+    mobile_number: MobileNumber
     email_address: EmailStr
     source_of_funds: str = Field(min_length=1, max_length=500)
 

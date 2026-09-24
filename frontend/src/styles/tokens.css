@@ -2,11 +2,53 @@
   --white: #ffffff;
   --gray--100: #f1f1f1;
   --gray--50: #f1f1f180;
-  --blue: #2c71f6;
+  /* Blended between the old brand blue (#2c71f6) and the grid-trail purple
+     (#4f26e9) so the whole theme reads as one purple-blue accent instead of
+     two competing colours. --blue-rgb lets other rules alpha-blend it
+     (rgba(var(--blue-rgb), 0.3)) without hardcoding a second copy of the hex. */
+  --blue: #3e4cf0;
+  --blue-rgb: 62, 76, 240;
   --black: #151515;
   --gray--light: #fafafa;
   --dark-gray: #595959;
   --teal-underline: #3de0c4;
+  /* Reserved for hero backdrops and primary CTAs only - not every blue
+     surface, or it stops reading as an accent and just becomes noise. */
+  --gradient-primary: linear-gradient(135deg, var(--blue), var(--teal-underline));
+  /* Same purple-blue accent, much lower alpha, layered over the flat card
+     colour - a tint for content blocks that still hold body text, not the
+     saturated CTA gradient which would fight with readability. */
+  --gradient-card: linear-gradient(
+      135deg,
+      rgba(var(--blue-rgb), 0.22),
+      rgba(var(--blue-rgb), 0.03) 60%
+    ),
+    var(--surface-card);
+
+  /* Dark app-shell surfaces, centralised so app.css doesn't scatter one-off hex values.
+     Card needs to read as clearly lifted off the page, not a near-identical shade. */
+  --surface-page: #1f1f1f;
+  --surface-card: #272727;
+  --surface-input: #111111;
+  --border-subtle: #383838;
+  --border-strong: #484848;
+
+  /* Status badges: solid fills (not low-opacity tints) so they stay legible
+     against dark cards. "Approved" is deliberately its own colour (info/teal,
+     not success-green) because it shares a queue with "Completed" in the
+     cash-out flow - same green on both read as indistinguishable. */
+  --status-success-bg: #1f8a4c;
+  --status-success-fg: #eafff3;
+  --status-info-bg: #159c8a;
+  --status-info-fg: #eafffb;
+  --status-progress-bg: var(--blue);
+  --status-progress-fg: #eef4ff;
+  --status-warning-bg: #e3b341;
+  --status-warning-fg: #2a1d00;
+  --status-danger-bg: #d94c3d;
+  --status-danger-fg: #fff3f1;
+  --status-neutral-bg: #595959;
+  --status-neutral-fg: #f5f5f5;
 }
 
 * {
@@ -21,7 +63,7 @@ body,
 }
 
 body {
-  background-color: var(--blue);
+  background: var(--gradient-primary);
   color: var(--gray--100);
   font-family: Poppins, sans-serif;
   font-size: 0.9em;
@@ -97,7 +139,7 @@ textarea {
 }
 
 .nav__button {
-  background-color: var(--blue);
+  background: var(--gradient-primary);
   color: var(--white);
   border: 0;
   border-radius: 3em;
@@ -115,7 +157,7 @@ textarea {
   position: fixed;
   inset: 0;
   z-index: 999999;
-  background-color: var(--blue);
+  background: var(--gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,7 +171,7 @@ textarea {
 }
 
 .pill {
-  background-color: var(--blue);
+  background: var(--gradient-primary);
   color: var(--white);
   border: 0;
   border-radius: 3em;

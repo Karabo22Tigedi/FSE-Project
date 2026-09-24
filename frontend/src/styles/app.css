@@ -2,7 +2,7 @@
   position: relative;
   isolation: isolate;
   min-height: 100vh;
-  background: rgb(31, 31, 31);
+  background: var(--surface-page);
   color: var(--gray--100);
 }
 
@@ -12,25 +12,88 @@
   left: 4.2%;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
   z-index: 20;
-  max-width: 11rem;
+  width: 13.5rem;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
 }
 
-.app-side a {
+.nav-section-label {
+  margin: 1.1rem 0 0.4rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gray--50);
+}
+
+.nav-section-label:first-child {
+  margin-top: 0;
+}
+
+.nav-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.nav-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.7rem;
   color: var(--gray--100);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-tile:hover {
+  background: #ffffff14;
+  color: var(--white);
+}
+
+.nav-tile.is-active {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.nav-tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.35), rgba(var(--blue-rgb), 0.12));
+  transition: background 0.15s ease;
+}
+
+.nav-tile:hover .nav-tile__icon {
+  background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.55), rgba(var(--blue-rgb), 0.25));
+}
+
+.nav-tile.is-active .nav-tile__icon {
+  background: linear-gradient(135deg, #ffffff59, #ffffff1f);
+}
+
+.nav-tile__icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.nav-tile__label {
   font-size: 0.85em;
   font-weight: 500;
-}
-
-.app-side a:hover {
-  color: var(--gray--50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-main {
   position: relative;
   z-index: 1;
-  padding: 8rem 8.33% 4rem 18%;
+  padding: 8rem 8.33% 4rem 20%;
 }
 
 .app-main h1 {
@@ -41,7 +104,8 @@
 }
 
 .app-card {
-  background: #1c1c1c;
+  background: var(--gradient-card);
+  border: 1px solid var(--border-subtle);
   border-radius: 1rem;
   padding: 1.4rem 1.6rem;
   margin-bottom: 1rem;
@@ -69,9 +133,9 @@
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
-  background: #111;
+  background: var(--surface-input);
   color: var(--gray--100);
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-subtle);
   border-radius: 0.6rem;
   padding: 0.65rem 0.75rem;
   font-size: 0.95em;
@@ -86,6 +150,38 @@
 .form-grid select:disabled,
 .form-grid textarea:disabled {
   opacity: 0.65;
+}
+
+/* Two fields per row instead of one long vertical stack, so a form with
+   several fields doesn't push its own submit button below the fold.
+   .form-grid__full opts a field (or the submit button) out of pairing. */
+.form-grid--paired {
+  max-width: 40rem;
+}
+
+@media screen and (min-width: 640px) {
+  .form-grid--paired {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-grid__full {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Beneficiaries page: form on the left, saved list on the right, instead of
+   a full-width form card with empty space beside it and the list stacked
+   below the fold. */
+.beneficiaries-grid {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media screen and (min-width: 900px) {
+  .beneficiaries-grid {
+    grid-template-columns: minmax(0, 40rem) minmax(0, 1fr);
+  }
 }
 
 .method-grid .hint {
@@ -105,7 +201,7 @@
   position: relative;
   isolation: isolate;
   min-height: 100vh;
-  background: rgb(31, 31, 31);
+  background: var(--surface-page);
   color: var(--white);
   padding: 9rem 8.33% 4rem;
 }
@@ -124,22 +220,30 @@
 .auth-page .form-grid input,
 .auth-page .form-grid select,
 .auth-page .form-grid textarea {
-  background: #1f1f1f;
+  background: var(--surface-input);
   color: var(--white);
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-strong);
 }
 
 .banner {
   margin: 0 0 1rem;
-  font-size: 0.9em;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.6rem;
+  border-left: 3px solid transparent;
+  font-size: 0.88em;
+  font-weight: 500;
 }
 
 .banner--error {
-  color: #c0392b;
+  background: #d94c3d26;
+  border-left-color: var(--status-danger-bg);
+  color: #ffb3a8;
 }
 
 .banner--ok {
-  color: #1f8a4c;
+  background: #1f8a4c26;
+  border-left-color: var(--status-success-bg);
+  color: #8ef0b5;
 }
 
 .muted {
@@ -180,14 +284,6 @@
   color: var(--gray--50);
 }
 
-.auth-page .banner--error {
-  color: #ff8a7a;
-}
-
-.auth-page .banner--ok {
-  color: #6ee7a0;
-}
-
 .auth-page a:not(.pill):not(.nav__logo):not(.nav__link):not(.nav__button) {
   text-decoration: underline;
   text-decoration-color: var(--teal-underline);
@@ -202,7 +298,9 @@
 }
 
 .banner--warn {
-  color: #e3b341;
+  background: #e3b34126;
+  border-left-color: var(--status-warning-bg);
+  color: #f3cd72;
 }
 
 .stagger-in {
@@ -224,47 +322,60 @@
 .status-badge {
   display: inline-block;
   border-radius: 3em;
-  padding: 0.12em 0.7em;
-  font-size: 0.75em;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  background: #2a2a2a;
-  color: var(--gray--100);
+  padding: 0.22em 0.85em;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
   vertical-align: middle;
 }
 
-.status-badge--approved,
+/* Terminal success states - fully done, nothing more to happen. */
 .status-badge--settled,
-.status-badge--linked {
-  background: #1f8a4c33;
-  color: #6ee7a0;
+.status-badge--linked,
+.status-badge--completed {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+}
+
+/* Cleared/approved but not yet finished - kept off success-green so it never
+   reads the same as "completed" in a queue that shows both (e.g. cash-outs:
+   approved --> completed are different rows an admin must tell apart). */
+.status-badge--approved {
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
 }
 
 .status-badge--pending,
 .status-badge--cash_in_pending,
-.status-badge--settlement_queued {
-  background: #e3b34122;
-  color: #e3b341;
+.status-badge--settlement_queued,
+.status-badge--requested,
+.status-badge--processing {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
 }
 
 .status-badge--rejected,
 .status-badge--settlement_failed,
-.status-badge--expired {
-  background: #c0392b22;
-  color: #ff8a7a;
+.status-badge--expired,
+.status-badge--failed {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
 }
 
 .status-badge--not_submitted,
 .status-badge--cancelled,
 .status-badge--unlinked {
-  background: #ffffff12;
-  color: var(--gray--50);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
 }
 
 .status-badge--quoted,
 .status-badge--cash_in_confirmed {
-  background: #2c71f622;
-  color: #7aa6ff;
+  background: var(--status-progress-bg);
+  color: var(--status-progress-fg);
 }
 
 .metric-row {
@@ -274,7 +385,7 @@
 }
 
 .metric {
-  background: #111;
+  background: var(--surface-input);
   border-radius: 0.8rem;
   padding: 0.9rem 1rem;
 }
@@ -338,7 +449,7 @@
   border-radius: 50%;
   margin-top: 0.2rem;
   background: #333;
-  box-shadow: 0 0 0 3px #1c1c1c;
+  box-shadow: 0 0 0 3px var(--surface-card);
   position: relative;
   z-index: 1;
 }
@@ -350,7 +461,7 @@
   top: 1rem;
   bottom: 0;
   width: 1px;
-  background: #2a2a2a;
+  background: var(--border-subtle);
 }
 
 .timeline__step:last-child::after {
@@ -376,8 +487,8 @@
 
 .method-grid button {
   text-align: left;
-  background: #111;
-  border: 1px solid #2a2a2a;
+  background: var(--surface-input);
+  border: 1px solid var(--border-subtle);
   color: var(--gray--100);
   border-radius: 0.8rem;
   padding: 0.85rem 1rem;
@@ -385,7 +496,7 @@
 }
 
 .method-grid button:hover {
-  border-color: #3a3a3a;
+  border-color: var(--border-strong);
 }
 
 .method-grid button.is-on {
@@ -415,6 +526,68 @@
   margin-bottom: 0.6rem;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 15, 15, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: modal-fade-in 0.15s ease both;
+}
+
+.modal-card {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem;
+  padding: 1.6rem;
+  width: 100%;
+  max-width: 28rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modal-pop-in 0.15s ease both;
+}
+
+.modal-card h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.15rem;
+}
+
+.modal-card__body {
+  margin-bottom: 1.2rem;
+  color: var(--gray--100);
+}
+
+.modal-card__body p {
+  margin: 0 0 0.5rem;
+}
+
+.modal-card__body p:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .title-row h2 {
   margin: 0;
 }
@@ -422,10 +595,18 @@
 @media screen and (max-width: 767px) {
   .app-side {
     position: static;
+    width: auto;
+    max-height: none;
+    padding: 6.5rem 4.2% 0;
+  }
+
+  .nav-tiles {
     flex-direction: row;
     flex-wrap: wrap;
-    max-width: none;
-    padding: 6.5rem 4.2% 0;
+  }
+
+  .nav-tile {
+    flex: 1 1 auto;
   }
 
   .app-main {
@@ -448,22 +629,6 @@
   .kv dd {
     text-align: left;
   }
-}
-
-.status-badge--requested,
-.status-badge--processing {
-  background: #e3b34122;
-  color: #e3b341;
-}
-
-.status-badge--completed {
-  background: #1f8a4c33;
-  color: #6ee7a0;
-}
-
-.status-badge--failed {
-  background: #c0392b22;
-  color: #ff8a7a;
 }
 
 .pill--danger {

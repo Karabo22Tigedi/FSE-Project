@@ -40,8 +40,8 @@ export function Register() {
       <Nav />
       <h1>Create an account</h1>
       <p className="page-lead">
-        After you sign in you will complete KYC. An administrator must approve it before you can
-        send.
+        You'll need to complete KYC after signing in — an administrator has to approve it before
+        you can send.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       <form className="form-grid" onSubmit={(e) => void onSubmit(e)}>

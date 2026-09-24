@@ -101,7 +101,7 @@ export function Config() {
       <h1>Config</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        Fee parameters and daily/monthly ZAR limits per KYC tier.
+        Adjust fee settings and daily/monthly sending limits for each KYC tier.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

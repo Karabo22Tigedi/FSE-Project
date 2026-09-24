@@ -45,7 +45,7 @@ export function History() {
   return (
     <>
       <h1>History</h1>
-      <p className="page-lead">Quotes you have locked, cashed in, settled, or cancelled.</p>
+      <p className="page-lead">Everything you've sent — locked, cashed in, settled, or cancelled.</p>
       {loading ? <p className="muted">Loading history…</p> : null}
       {error ? <p className="banner banner--error">{error}</p> : null}
 

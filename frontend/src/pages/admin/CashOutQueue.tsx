@@ -72,8 +72,9 @@ export function CashOutQueue() {
       <h1>Admin cash-outs</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        requested → approve or fail. approved → complete or fail. Complete burns UCTUSD by
-        paying the issuer. Fail still refunds spendable UCTUSD.
+        Approve or fail a requested cash-out, then complete or fail it once it's approved.
+        Completing burns UCTUSD by paying the issuer — failing refunds the sender's spendable
+        balance.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

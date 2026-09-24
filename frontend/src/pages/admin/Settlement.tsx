@@ -91,8 +91,8 @@ export function Settlement() {
       <h1>Settlement</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        Run waits for one worker pass and returns what it handled. Retry re-queues a pending,
-        processing, or failed message; it does not complete settlement on its own.
+        Run processes one worker pass and shows what it handled. Retry re-queues a stuck message
+        — it doesn't settle anything by itself.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

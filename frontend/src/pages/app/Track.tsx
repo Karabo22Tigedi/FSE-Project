@@ -64,7 +64,7 @@ export function Track() {
             Tracking <span className="mono">{ref}</span>
           </>
         ) : (
-          "Look up a remittance by tracking reference."
+          "Look up a send by its tracking reference."
         )}
       </p>
       {loading ? <p className="muted">Looking up this transfer…</p> : null}

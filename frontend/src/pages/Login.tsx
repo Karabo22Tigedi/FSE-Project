@@ -36,7 +36,7 @@ export function Login() {
       <GridTrail />
       <Nav />
       <h1>Sign in</h1>
-      <p className="page-lead">Use the email and password for your Group 3 remittance account.</p>
+      <p className="page-lead">Enter the email and password for your Group 3 account.</p>
       {registered ? (
         <p className="banner banner--ok">Account created. Sign in to continue to KYC.</p>
       ) : null}

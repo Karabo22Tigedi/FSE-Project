@@ -61,9 +61,9 @@ export function Wallet() {
       <h1>Wallet</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        Spendable UCTUSD is what you can cash out. On-chain is spendable plus amounts
-        reserved for cash-outs that are requested or approved. Completing a cash-out
-        burns UCTUSD to the issuer, so the on-chain balance drops.
+        Spendable UCTUSD is what you can cash out right now. On-chain also counts anything
+        reserved for a cash-out that's still requested or approved — that reservation clears once
+        the cash-out completes and burns the UCTUSD.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {loading ? <p className="muted">Loading wallet…</p> : null}

@@ -78,8 +78,8 @@ export function CashOut() {
       <h1>Cash-out</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        Status flow: requested → approved → completed. A failed cash-out refunds the reserved
-        amount to your spendable balance.
+        Your cash-out moves from requested to approved to completed. If it fails, the reserved
+        amount goes straight back to your spendable balance.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

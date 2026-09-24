@@ -129,7 +129,7 @@ export function Quote() {
           <span className="mono">{remittance.tracking_ref}</span>
         </p>
       ) : (
-        <p className="page-lead">Locked fee, FX margin, and UCTUSD for this send.</p>
+        <p className="page-lead">Your locked-in fee, exchange rate margin, and UCTUSD amount for this send.</p>
       )}
       {loading ? <p className="muted">Loading quote…</p> : null}
       {error ? <p className="banner banner--error">{error}</p> : null}
@@ -168,13 +168,13 @@ export function Quote() {
           {remittance.status === "cash_in_pending" ? (
             <p className="banner banner--ok">
               Cash-in started
-              {remittance.cash_in_method ? ` (${cashInLabel(remittance.cash_in_method)})` : ""}. An
-              administrator must confirm receipt before settlement can run.
+              {remittance.cash_in_method ? ` (${cashInLabel(remittance.cash_in_method)})` : ""}.
+              We're waiting on an administrator to confirm receipt before settlement can run.
             </p>
           ) : null}
           {remittance.status === "cash_in_confirmed" || remittance.status === "settlement_queued" ? (
             <p className="banner banner--ok">
-              Cash-in is confirmed and settlement is queued. An administrator needs to run the
+              Cash-in confirmed and settlement is queued — an administrator still needs to run the
               settlement worker.
             </p>
           ) : null}

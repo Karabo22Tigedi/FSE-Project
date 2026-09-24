@@ -146,7 +146,10 @@ export function Kyc() {
   return (
     <>
       <h1>KYC</h1>
-      <p className="page-lead">Identity details for FICA-style review. Sending stays locked until an administrator approves this application.</p>
+      <p className="page-lead">
+        We need a few identity details to review your application. You won't be able to send
+        until an administrator approves it.
+      </p>
       {loading ? <p className="muted">Loading KYC…</p> : null}
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

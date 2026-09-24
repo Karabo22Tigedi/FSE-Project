@@ -87,10 +87,7 @@ export function Profile() {
   return (
     <>
       <h1>Profile</h1>
-      <p className="page-lead">
-        Your name, email, and mobile number. These are the details we use to identify your
-        sending account.
-      </p>
+      <p className="page-lead">Your name, email, and mobile number — how we identify your account.</p>
       {loading ? <p className="muted">Loading your profile…</p> : null}
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}

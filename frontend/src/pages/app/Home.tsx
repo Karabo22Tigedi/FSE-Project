@@ -46,7 +46,7 @@ export function Home() {
   return (
     <>
       <h1>Home</h1>
-      <p className="page-lead">Your sending account, KYC status, and remaining ZAR limits.</p>
+      <p className="page-lead">Your account, KYC status, and how much you can still send this month.</p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {loading ? <p className="muted">Loading your account…</p> : null}
 
@@ -96,21 +96,18 @@ export function Home() {
           <h2>Sending is locked</h2>
           {kyc.status === "not_submitted" ? (
             <p>
-              Complete KYC before you can lock a quote. An administrator must approve it before any
-              ZAR leaves the platform.
+              Please complete KYC first — an administrator needs to approve it before any ZAR
+              leaves the platform.
             </p>
           ) : null}
           {kyc.status === "pending" ? (
             <p>
-              Your KYC is with an administrator. You must wait for approval before you can send or
-              add beneficiaries.
+              Your KYC is waiting on an administrator. You'll be able to send and add
+              beneficiaries once it's approved.
             </p>
           ) : null}
           {kyc.status === "rejected" ? (
-            <p>
-              This KYC was not approved. Update your details and resubmit so an administrator can
-              review it again.
-            </p>
+            <p>Your KYC wasn't approved. Update your details and resubmit for another review.</p>
           ) : null}
           <div className="action-row">
             <Link className="pill" to="/app/kyc">

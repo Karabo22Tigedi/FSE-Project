@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { api } from "../../api/client"
 import type { KycOut } from "../../api/types"
 import { useAuth } from "../../auth/useAuth"
+import { Modal } from "../../components/Modal"
 import { errorDetail, formatDateTime, kycLabel } from "../app/format"
 import { Badge } from "../app/StatusTimeline"
 import { formatOptionalDate, staggerStyle } from "../app/walletFormat"
@@ -15,6 +16,9 @@ export function KycQueue() {
   const [ok, setOk] = useState("")
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [result, setResult] = useState<{ name: string; decision: "approved" | "rejected" } | null>(
+    null,
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -41,13 +45,14 @@ export function KycQueue() {
     setItems(data)
   }
 
-  async function approve(id: string) {
+  async function approve(id: string, name: string) {
     setError("")
     setOk("")
     setBusyId(id)
     try {
       await api.approveKyc(id)
       setOk("KYC application approved.")
+      setResult({ name, decision: "approved" })
       await reload()
     } catch (err) {
       setError(errorDetail(err, "Could not approve KYC"))
@@ -56,7 +61,7 @@ export function KycQueue() {
     }
   }
 
-  async function reject(id: string) {
+  async function reject(id: string, name: string) {
     const reason = (reasons[id] ?? "").trim()
     if (!reason) {
       setError("A rejection reason is required.")
@@ -68,6 +73,7 @@ export function KycQueue() {
     try {
       await api.rejectKyc(id, reason)
       setOk("KYC application rejected.")
+      setResult({ name, decision: "rejected" })
       await reload()
     } catch (err) {
       setError(errorDetail(err, "Could not reject KYC"))
@@ -81,7 +87,7 @@ export function KycQueue() {
       <h1>Admin KYC</h1>
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
-        Review submitted applications. Approve or reject with a reason.
+        Review each application and approve or reject it, with a reason if you reject.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {ok ? <p className="banner banner--ok">{ok}</p> : null}
@@ -136,7 +142,7 @@ export function KycQueue() {
               className="form-grid"
               onSubmit={(e) => {
                 e.preventDefault()
-                void reject(item.id)
+                void reject(item.id, item.full_name)
               }}
             >
               <label>
@@ -152,7 +158,7 @@ export function KycQueue() {
                   className="pill"
                   type="button"
                   disabled={busyId === item.id}
-                  onClick={() => void approve(item.id)}
+                  onClick={() => void approve(item.id, item.full_name)}
                 >
                   Approve
                 </button>
@@ -164,6 +170,27 @@ export function KycQueue() {
           ) : null}
         </article>
       ))}
+
+      <Modal
+        open={result !== null}
+        onClose={() => setResult(null)}
+        title={result?.decision === "approved" ? "Application approved" : "Application rejected"}
+        actions={
+          <button className="pill" type="button" onClick={() => setResult(null)}>
+            OK
+          </button>
+        }
+      >
+        <p>
+          {result?.name}'s KYC application has been{" "}
+          {result?.decision === "approved" ? "approved" : "rejected"}.
+        </p>
+        {result?.decision === "approved" ? (
+          <p className="hint">They can now lock quotes and send.</p>
+        ) : (
+          <p className="hint">They'll need to resubmit before they can send.</p>
+        )}
+      </Modal>
     </>
   )
 }

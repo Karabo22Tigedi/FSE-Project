@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { api } from "../../api/client"
 import { ApiError } from "../../api/types"
 import type { Beneficiary, KycStatusOut, LimitStatus } from "../../api/types"
+import { Modal } from "../../components/Modal"
 import { errorDetail, formatZar } from "./format"
 import { staggerStyle } from "./walletFormat"
 
@@ -17,6 +18,7 @@ export function Send() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -47,15 +49,22 @@ export function Send() {
   }, [])
 
   const approved = kyc?.status === "approved"
+  const selectedBeneficiary = people.find((person) => person.id === beneficiaryId) ?? null
 
-  async function onSubmit(e: FormEvent) {
+  function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError("")
+    setConfirmOpen(true)
+  }
+
+  async function confirmSend() {
     setSaving(true)
     try {
       const quote = await api.createQuote(beneficiaryId, zarAmount)
+      setConfirmOpen(false)
       navigate(`/app/send/${quote.id}`)
     } catch (err) {
+      setConfirmOpen(false)
       if (err instanceof ApiError && (err.status === 422 || err.status === 403)) {
         setError(err.detail)
       } else {
@@ -70,7 +79,7 @@ export function Send() {
     <>
       <h1>New quote</h1>
       <p className="page-lead">
-        Lock a 15-minute rate and fee breakdown for a ZAR send. Cash-in happens on the next screen.
+        Lock in a rate and fee breakdown for the next 15 minutes. You'll cash in on the next screen.
       </p>
       {loading ? <p className="muted">Loading…</p> : null}
       {error ? <p className="banner banner--error">{error}</p> : null}
@@ -79,7 +88,7 @@ export function Send() {
         <article className="app-card stagger-in" style={staggerStyle(0)}>
           <h2>KYC not approved</h2>
           <p>
-            You cannot lock a quote until an administrator approves your KYC.
+            You'll need approved KYC before you can lock a quote.
             {kyc.status === "pending" ? " Your application is still under review." : null}
             {kyc.status === "rejected" ? " Resubmit your application after the rejection." : null}
             {kyc.status === "not_submitted" ? " Submit your details first." : null}
@@ -147,6 +156,33 @@ export function Send() {
           </form>
         </article>
       ) : null}
+
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Confirm this send"
+        actions={
+          <>
+            <button className="pill" type="button" disabled={saving} onClick={() => void confirmSend()}>
+              {saving ? "Locking…" : "Confirm"}
+            </button>
+            <button
+              className="pill pill--ghost"
+              type="button"
+              disabled={saving}
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <p>
+          Send <strong>{formatZar(zarAmount || "0")}</strong> to{" "}
+          <strong>{selectedBeneficiary?.full_name ?? "this beneficiary"}</strong>?
+        </p>
+        <p className="hint">This locks the current rate and fee for 15 minutes. You can still cancel after.</p>
+      </Modal>
     </>
   )
 }

@@ -156,7 +156,7 @@ python -m scripts.run_settlement_worker
 \begin{verbatim}
 python -m pytest -q
 \end{verbatim}
-  Expect 129 passed.
+  Expect 132 passed.
 \end{enumerate}
 
 If settlement is stuck in pending or processing, retry that settlement id as admin. Do not retry completed. If Redis was down during enqueue, retry republishes the outbox row.
@@ -164,7 +164,7 @@ If settlement is stuck in pending or processing, retry that settlement id as adm
 \subsection{Ten-minute marking demo}
 With Redis up, keys set, admin created, and the platform wallet funded: (1)~register sender and recipient; (2)~both submit KYC; (3)~admin approves both; (4)~sender adds the recipient as a beneficiary (mobile/email match); (5)~post a quote under R3{,}000; (6)~show that cancel frees the limit, then create a fresh quote; (7)~cash-in, admin confirm; (8)~run the worker; (9)~recipient wallet shows spendable, hash, and on-chain; (10)~request cash-out, admin complete---spendable already dropped at request; complete burns on-chain so that balance drops too; (11)~fail a second cash-out and show the refund. Optional: cancel is 409 after expiry; retry of completed is 409.
 
-The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 129 passed.
+The pytest suite is the regression net for those stories (auth, KYC, quotes, limits, cash-in, settlement, wallet, cash-out, CORS, crypto). XRPL is mocked; Redis is not. Expect 132 passed.
 
 Compiled reports: \texttt{docs/reports/spec/} and \texttt{docs/reports/rationale/} PDFs. \texttt{PERFORMANCE\_TESTING.md} has the 7~September 2026 re-run on this fork (HTTP load, enqueue, and five live Testnet settlements). Kerry's 31~August / 1~September tables stay in the same file as the sketch baseline.
 

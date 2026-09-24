@@ -54,7 +54,7 @@ Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) becaus
 - 0 failures across the 50-user, 60 s HTTP run (§1). HTTP success rate **100%** (2,218 / 2,218).
 - An earlier 60 s attempt used the sketch locust mix (R10–R100). About 18% of `POST /remittances` returned 422 because the default R25 fee consumed the principal — a correctness guard on this fork, not an overload failure. The locustfile now uses R100–R500; that mix is what §1 reports.
 - Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5.
-- Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **129** pytest tests.
+- Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **132** pytest tests.
 
 ## How to reproduce (Windows)
 

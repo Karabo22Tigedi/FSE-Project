@@ -339,6 +339,7 @@ Remaining limitations of \emph{this} fork, not of the old sketch:
   \item Redis is required at runtime and in pytest.
   \item Login latency is dominated by bcrypt (see Section~\ref{sec:perf}).
   \item No AML monitoring product, no sanctions screening, no production key-management service.
+  \item Daily/monthly limit checks and the quote insert are separate steps with no row lock between them; two concurrent quote requests from the same sender could both read usage under the limit and jointly exceed it. Acceptable for a single-process academic prototype, not for a production ledger.
 \end{itemize}
 
 \section{Performance summary}

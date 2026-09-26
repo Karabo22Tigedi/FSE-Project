@@ -35,6 +35,36 @@ const FEATURES = [
     body: "MG + 10 digits, status through settlement",
   },
 ] as const
+const FAQS = [
+  {
+    q: "What does it cost to send?",
+    a: "A fixed R25 fee plus 1% of the amount you send, and a 2% margin on the exchange rate. Every part is shown on your quote before you pay. The recipient pays 1.5% when they cash out.",
+  },
+  {
+    q: "How long is my quote valid?",
+    a: "15 minutes. You can cancel before cash-in, and cancelled or expired quotes do not count towards your limits.",
+  },
+  {
+    q: "Why do I need to complete KYC?",
+    a: "You need approved KYC to send money and to cash out. A recipient can receive and hold funds before their KYC is approved.",
+  },
+  {
+    q: "How much can I send?",
+    a: "Verified senders can send up to R3,000 a day and R25,000 a month. Your remaining allowance is shown on your home screen.",
+  },
+  {
+    q: "How does my recipient get the money?",
+    a: "They register with the mobile number or email you saved for them and are linked automatically. After settlement the funds appear in their wallet, and they can cash out in USD or ZAR.",
+  },
+  {
+    q: "How do I track a transfer?",
+    a: "Every transfer gets a reference like MG1029384756 and a QR code. The sender, the linked recipient or an admin can open its track page to follow settlement.",
+  },
+  {
+    q: "Is this real money?",
+    a: "No. This is a university prototype. Cash-in and cash-out are simulated, and settlement runs on the XRP Ledger Testnet.",
+  },
+] as const
 const CONTACT_TILES = [
   "Annita Ngoma",
   "Karabo Tigedi",
@@ -116,10 +146,12 @@ export function Landing() {
     const reduced = prefersReducedMotion()
     const mobile = isMobileLayout()
 
+    // Arriving from another page: jump straight there. A smooth scroll here
+    // gets cut short when ScrollTrigger refreshes and restores the position.
     const scrollToHash = () => {
       const id = window.location.hash.replace("#", "")
       if (!id) return
-      document.getElementById(id)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" })
+      document.getElementById(id)?.scrollIntoView({ behavior: "auto" })
     }
 
     const ctx = gsap.context(() => {
@@ -157,7 +189,6 @@ export function Landing() {
           gsap.set(preloader, { opacity: 0, display: "none" })
         }
         playHero()
-        scrollToHash()
       } else {
         gsap.to(preloader, {
           opacity: 0,
@@ -166,8 +197,9 @@ export function Landing() {
           onComplete: () => {
             if (preloader) preloader.style.display = "none"
             playHero()
-            scrollToHash()
+            // Refresh first: pinned sections add spacing, which moves the target.
             ScrollTrigger.refresh()
+            scrollToHash()
           },
         })
       }
@@ -260,6 +292,12 @@ export function Landing() {
       })
     }, root)
 
+    if (reduced) {
+      // No preloader fade to wait for; scroll once the triggers above exist.
+      ScrollTrigger.refresh()
+      scrollToHash()
+    }
+
     return () => ctx.revert()
   }, [fontsReady, heroReady])
 
@@ -317,7 +355,7 @@ export function Landing() {
         </svg>
       </section>
 
-      <section className="create" id="faq">
+      <section className="create" id="how-it-works">
         <CreateCoins />
         <div className="create__intro-wrapper">
           <div className="create__heading-wrapper">
@@ -382,6 +420,20 @@ export function Landing() {
           </div>
         </div>
         <ScanCursor sectionRef={scanRef} />
+      </section>
+
+      <section className="faq" id="faq">
+        <div className="faq__wrapper">
+          <h1 className="faq__heading">FAQ</h1>
+          <div className="faq__list">
+            {FAQS.map((item) => (
+              <details key={item.q} className="faq__item">
+                <summary className="faq__question">{item.q}</summary>
+                <p className="faq__answer">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="payment" id="contact">

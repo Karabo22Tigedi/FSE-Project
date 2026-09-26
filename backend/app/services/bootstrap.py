@@ -1,11 +1,13 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session as DBSession
 
 from app.config import get_settings
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.fee_config import FeeConfig
 from app.models.limit_tier import LimitTier, LimitTierKey
+from app.models.session import Session as UserSession
 from app.models.user import User, UserRole
 
 # Mirrors the example table in the project brief (section: Remittance Limits).
@@ -31,14 +33,25 @@ def seed_defaults(db: DBSession) -> None:
 def seed_admin_if_configured(db: DBSession) -> None:
     """Create the dashboard admin when ADMIN_EMAIL and ADMIN_PASSWORD are set.
 
-    Public register cannot mint admins. Local demos still use scripts/create_admin.
+    If that admin already exists, the stored hash is updated to match
+    ADMIN_PASSWORD and their sessions are revoked. Public register cannot
+    mint admins. Local demos still use scripts/create_admin.
     """
     settings = get_settings()
     email = settings.admin_email.strip()
     password = settings.admin_password
     if not email or not password:
         return
-    if db.query(User).filter(User.email == email).first() is not None:
+    existing = db.query(User).filter(User.email == email).first()
+    if existing is not None:
+        if verify_password(password, existing.password_hash):
+            return
+        existing.password_hash = hash_password(password)
+        db.query(UserSession).filter(UserSession.user_id == existing.id).update(
+            {UserSession.revoked_at: datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
+        db.commit()
         return
     db.add(
         User(

@@ -1,4 +1,5 @@
 from app.config import get_settings
+from app.core.security import verify_password
 from app.models.user import User, UserRole
 from app.services.bootstrap import seed_admin_if_configured
 from tests.conftest import TestingSessionLocal
@@ -24,6 +25,24 @@ def test_seed_admin_from_env_once(monkeypatch):
         rows = db.query(User).filter(User.email == "host-admin@example.com").all()
         assert len(rows) == 1
         assert rows[0].role == UserRole.ADMIN
+    finally:
+        db.close()
+        get_settings.cache_clear()
+
+
+def test_seed_admin_replaces_password(monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAIL", "host-admin@example.com")
+    monkeypatch.setenv("ADMIN_PASSWORD", "HostAdmin1!")
+    get_settings.cache_clear()
+    db = TestingSessionLocal()
+    try:
+        seed_admin_if_configured(db)
+        monkeypatch.setenv("ADMIN_PASSWORD", "NewHostAdmin2!")
+        get_settings.cache_clear()
+        seed_admin_if_configured(db)
+        row = db.query(User).filter(User.email == "host-admin@example.com").one()
+        assert verify_password("NewHostAdmin2!", row.password_hash)
+        assert not verify_password("HostAdmin1!", row.password_hash)
     finally:
         db.close()
         get_settings.cache_clear()

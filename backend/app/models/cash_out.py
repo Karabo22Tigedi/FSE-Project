@@ -29,7 +29,9 @@ class CashOutRequest(Base):
     The RLUSD amount is debited from the recipient's internal ledger
     balance immediately on request (see app.api.routes.cash_out) to
     prevent overdrawing via concurrent requests, and refunded if the
-    request is later marked failed.
+    request is later marked failed. Admin complete burns the reserved
+    UCTUSD on-chain (Payment back to the issuer) and stores
+    `xrpl_burn_tx_hash`; fiat payout itself remains simulated.
     """
 
     __tablename__ = "cash_out_requests"
@@ -54,5 +56,6 @@ class CashOutRequest(Base):
     actioned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     actioned_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    xrpl_burn_tx_hash: Mapped[str | None] = mapped_column(String(96), nullable=True)
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])

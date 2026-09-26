@@ -43,5 +43,8 @@ class EncryptedString(TypeDecorator):
             return None
         try:
             return _fernet(self.key_field).decrypt(value.encode()).decode()
-        except InvalidToken:
-            return None
+        except InvalidToken as exc:
+            raise RuntimeError(
+                f"Failed to decrypt column using {self.key_field}: invalid token "
+                "(wrong key or corrupted ciphertext)"
+            ) from exc

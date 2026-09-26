@@ -66,3 +66,33 @@ def test_logout_revokes_session(client):
 def test_protected_route_requires_auth(client):
     resp = client.get("/users/me")
     assert resp.status_code == 401
+
+
+def test_login_stores_token_hash_not_raw_access_token(client):
+    import hashlib
+
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.models.session import Session
+
+    from tests.conftest import TestingSessionLocal
+
+    register(client)
+    resp = client.post("/auth/login", json={"email": "a@example.com", "password": "StrongPass123"})
+    assert resp.status_code == 200
+    raw = resp.json()["access_token"]
+
+    column_keys = {c.key for c in sa_inspect(Session).column_attrs}
+    assert "token" not in column_keys
+    assert "token_hash" in column_keys
+
+    db = TestingSessionLocal()
+    try:
+        rows = db.query(Session).all()
+        assert len(rows) == 1
+        assert rows[0].token_hash == hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        assert rows[0].token_hash != raw
+    finally:
+        db.close()
+
+    assert client.get("/users/me", headers={"Authorization": f"Bearer {raw}"}).status_code == 200

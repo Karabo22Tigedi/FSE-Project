@@ -1,6 +1,7 @@
 import enum
+import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String
@@ -11,6 +12,7 @@ from app.database import Base
 
 class RemittanceStatus(str, enum.Enum):
     QUOTED = "quoted"
+    CANCELLED = "cancelled"
     CASH_IN_PENDING = "cash_in_pending"
     CASH_IN_CONFIRMED = "cash_in_confirmed"
     SETTLEMENT_QUEUED = "settlement_queued"
@@ -30,15 +32,29 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+def _tracking_ref() -> str:
+    """Human-readable unique ref: MG + 10 decimal digits (not a UUID)."""
+    return f"MG{secrets.randbelow(10**10):010d}"
+
+
+def _default_expires_at() -> datetime:
+    from app.config import get_settings
+
+    return datetime.now(timezone.utc) + timedelta(seconds=get_settings().quote_ttl_seconds)
+
+
 class Remittance(Base):
     """FR-13/FR-14: a remittance transaction, created at quote time with
     the exchange rate and fee breakdown locked in.
 
-    FR-16/FR-17: the sum of a sender's remittances created today/this
-    calendar month is what the daily/monthly limit check is measured
-    against (see app.services.limits) - creating a quote counts as
-    "the transaction proceeding" for limit purposes, since no later
-    confirmation step exists yet.
+    FR-16/FR-17: daily/monthly limits count a quote only while it is still
+    live: status is not cancelled, and if status is quoted it has not
+    expired. Cash-in onward (including settlement_failed) always counts.
+    See app.services.limits.
+
+    Quotes expire after QUOTE_TTL_SECONDS (default 15 minutes). The sender
+    may cancel a still-valid quoted remittance. Expired or cancelled quotes
+    cannot be cashed in.
 
     FR-18/FR-19/FR-20: the sender initiates a simulated cash-in (locking in
     a method and moving to CASH_IN_PENDING), and an admin confirms receipt
@@ -54,6 +70,9 @@ class Remittance(Base):
     __tablename__ = "remittances"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tracking_ref: Mapped[str] = mapped_column(
+        String(12), unique=True, index=True, nullable=False, default=_tracking_ref
+    )
     sender_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     beneficiary_id: Mapped[str] = mapped_column(String(36), ForeignKey("beneficiaries.id"), nullable=False)
 
@@ -79,9 +98,18 @@ class Remittance(Base):
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     settlement_failure_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_default_expires_at, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])
     beneficiary: Mapped["Beneficiary"] = relationship("Beneficiary")
+
+    def is_expired(self) -> bool:
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) >= expires_at

@@ -1,14 +1,16 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from app.models.user import UserRole
+from app.schemas.base import SchemaModel
+from app.schemas.validators import MobileNumber
 
 
 class UserRegister(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     email: EmailStr
-    mobile_number: str = Field(min_length=5, max_length=32)
+    mobile_number: MobileNumber
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -22,12 +24,10 @@ class UserUpdate(BaseModel):
 
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
     email: EmailStr | None = None
-    mobile_number: str | None = Field(default=None, min_length=5, max_length=32)
+    mobile_number: MobileNumber | None = None
 
 
-class UserOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class UserOut(SchemaModel):
     id: str
     full_name: str
     email: str
@@ -36,7 +36,7 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-class TokenResponse(BaseModel):
+class TokenResponse(SchemaModel):
     access_token: str
     token_type: str = "bearer"
     expires_at: datetime

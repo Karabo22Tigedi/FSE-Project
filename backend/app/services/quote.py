@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
+from app.config import get_settings
 from app.core.money import to_decimal
 from app.models.fee_config import FeeConfig
 
@@ -59,3 +61,14 @@ def build_quote(zar_amount: Decimal, base_rate: Decimal, fee_config: FeeConfig) 
         estimated_cash_out_fee=estimated_cash_out_fee,
         estimated_recipient_payout=estimated_recipient_payout,
     )
+
+
+def fee_consumes_send(zar_amount: Decimal, quote: QuoteBreakdown) -> bool:
+    """True when the transaction fee leaves nothing to convert (FR-14 reject)."""
+    net_zar = zar_amount - quote.transaction_fee_zar
+    return quote.rlusd_amount <= 0 or net_zar <= 0
+
+
+def quote_expires_at(now: datetime | None = None) -> datetime:
+    now = now or datetime.now(timezone.utc)
+    return now + timedelta(seconds=get_settings().quote_ttl_seconds)

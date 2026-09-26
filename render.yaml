@@ -1,0 +1,55 @@
+# Optional Render host so the group can open one WhatsApp URL.
+# Not a brief requirement. To remove later: delete this file and deploy/,
+# then delete the Render services in the dashboard. Local FastAPI + Vite stay.
+
+services:
+  - type: keyvalue
+    name: xrpl-remit-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: xrpl-remit
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////app/data/fx_platform.db
+      - key: REDIS_URL
+        fromService:
+          name: xrpl-remit-redis
+          type: keyvalue
+          property: connectionString
+      - key: FRONTEND_DIST
+        value: /app/frontend_dist
+      - key: SETUP_PLATFORM_WALLET
+        value: "true"
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_FULL_NAME
+        value: Group 3 Admin
+      - key: ADMIN_MOBILE_NUMBER
+        value: "+27000000000"
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: KYC_ENCRYPTION_KEY
+        sync: false
+      - key: XRPL_KEY_ENCRYPTION_KEY
+        sync: false
+      - key: XRPL_JSON_RPC_URL
+        value: https://s.altnet.rippletest.net:51234/
+      - key: XRPL_ISSUER_ADDRESS
+        value: rELez4x4Zqv3KYqboYVfrYPF8521Ycbxa5
+      - key: XRPL_CURRENCY_CODE
+        value: "5543545553440000000000000000000000000000"
+      - key: XRPL_CURRENCY_SYMBOL
+        value: UCTUSD
+      - key: XRPL_DISTRIBUTOR_ADDRESS
+        value: rsWPX7FKwnfk6enosumAzEuTs5Y12Steq4
+      - key: XRPL_TRUSTLINE_LIMIT
+        value: "1000000"

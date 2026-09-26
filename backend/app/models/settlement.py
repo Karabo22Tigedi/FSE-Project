@@ -23,12 +23,11 @@ class SettlementMessage(Base):
     """FR-21: a queued settlement instruction, placed once a remittance's
     ZAR cash-in is confirmed.
 
-    Implemented as a DB-backed queue table rather than RabbitMQ/Redis
-    Streams/Kafka - neither was available to stand up in this environment
-    (no Redis/RabbitMQ installed, Docker daemon not running). Enqueue/
-    claim/ack semantics are the same as a real broker, so swapping one in
-    later means replacing this table's producer/consumer (see
-    app.services.settlement), not any caller.
+    The durable record of status/outcome/tx-hash (FR-23/NFR-09 need it
+    queryable regardless of queue tech). Transport is a real Redis Stream
+    (see app.services.settlement): this row's id is XADD'd to the stream
+    and consumed via a consumer group (XREADGROUP/XACK, with
+    XAUTOCLAIM/XCLAIM reclaiming stuck entries), stream_entry_id below.
 
     FR-25: the unique constraint on remittance_id means a given remittance
     can never have more than one message queued for it - the first line
@@ -48,6 +47,9 @@ class SettlementMessage(Base):
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Redis Streams transport id for this message. Null means the durable
+    # DB row exists but was never successfully XADD'd (or the id was lost).
+    stream_entry_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

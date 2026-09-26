@@ -1,11 +1,14 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
+
+from app.schemas.base import SchemaModel
+from app.schemas.validators import MobileNumber
 
 
 class BeneficiaryCreate(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
-    mobile_number: str | None = Field(default=None, min_length=5, max_length=32)
+    mobile_number: MobileNumber | None = None
     email_address: EmailStr | None = None
     country: str = Field(min_length=1, max_length=100)
     payout_currency: str = Field(min_length=3, max_length=10)
@@ -19,9 +22,7 @@ class BeneficiaryCreate(BaseModel):
         return self
 
 
-class BeneficiaryOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class BeneficiaryOut(SchemaModel):
     id: str
     sender_id: str
     full_name: str

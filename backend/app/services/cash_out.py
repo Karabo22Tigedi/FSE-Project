@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import update
+from sqlalchemy.orm import Session as DBSession
+
 from app.core.money import to_decimal
 from app.models.fee_config import FeeConfig
+from app.models.wallet import RecipientWallet
 from app.services.exchange_rate import get_usd_zar_rate
 
 TWO_PLACES = Decimal("0.01")
@@ -46,4 +50,27 @@ def build_cash_out_quote(rlusd_amount: Decimal, fiat_currency: str, fee_config: 
         fee_percentage=fee_percentage,
         fee_amount_rlusd=fee_amount_rlusd,
         fiat_payout_amount=fiat_payout_amount,
+    )
+
+
+def try_debit_spendable(db: DBSession, user_id: str, amount: Decimal) -> bool:
+    """Atomically debit spendable `RecipientWallet.balance` if funds suffice.
+
+    Single UPDATE ... WHERE balance >= :amt so concurrent requests cannot
+    overdraw. Returns True when exactly one row was updated.
+    """
+    result = db.execute(
+        update(RecipientWallet)
+        .where(RecipientWallet.user_id == user_id, RecipientWallet.balance >= amount)
+        .values(balance=RecipientWallet.balance - amount)
+    )
+    return result.rowcount == 1
+
+
+def credit_spendable(db: DBSession, user_id: str, amount: Decimal) -> None:
+    """Refund reserved RLUSD to spendable (failed cash-out)."""
+    db.execute(
+        update(RecipientWallet)
+        .where(RecipientWallet.user_id == user_id)
+        .values(balance=RecipientWallet.balance + amount)
     )

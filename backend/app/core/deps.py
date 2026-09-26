@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session as DBSession
 
+from app.core.security import hash_session_token
 from app.database import get_db
 from app.models.kyc import KYCStatus
 from app.models.session import Session as SessionModel
@@ -17,7 +18,8 @@ def get_current_session(
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    session = db.query(SessionModel).filter(SessionModel.token == credentials.credentials).first()
+    token_hash = hash_session_token(credentials.credentials)
+    session = db.query(SessionModel).filter(SessionModel.token_hash == token_hash).first()
     if session is None or not session.is_active():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
 
@@ -43,9 +45,8 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 def require_approved_kyc(current_user: User = Depends(get_current_user)) -> User:
     """FR-09/FR-09a guard: block value leaving the platform without approved KYC.
 
-    Not wired into any route yet in this slice (no remittance/cash-out
-    endpoints exist), but the future "initiate remittance" (FR-09) and
-    "request cash-out" (FR-09a) endpoints should depend on this.
+    Wired on remittance quote creation and cash-out request (and any other
+    route that Depends on this).
     """
     application = current_user.kyc_application
     if application is None or application.status != KYCStatus.APPROVED:

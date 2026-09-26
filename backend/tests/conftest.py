@@ -36,6 +36,16 @@ app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest.fixture(autouse=True)
+def _skip_alembic_on_test_lifespan(monkeypatch):
+    """TestClient still runs FastAPI lifespan. Alembic against sqlite://
+    uses a different in-memory connection than this module's StaticPool
+    engine; skip it and let _fresh_database create_all the test schema.
+    """
+    monkeypatch.setattr("app.main.run_migrations", lambda: None)
+
+
+
+@pytest.fixture(autouse=True)
 def _fresh_database():
     from app.services.bootstrap import seed_defaults
     from app.services.redis_client import get_redis_client
@@ -185,6 +195,7 @@ def mock_xrpl(monkeypatch):
     exercising FR-24's failure path with a controlled, repeatable error.
     """
     import itertools
+    from decimal import Decimal
     from types import SimpleNamespace
 
     counter = itertools.count(1)
@@ -196,16 +207,39 @@ def mock_xrpl(monkeypatch):
     def fake_establish_trustline(wallet):
         return f"FAKE_TRUSTLINE_TX_{wallet.classic_address}"
 
-    state = {"should_fail": False, "fail_reason": "tecUNFUNDED_PAYMENT"}
+    state = {
+        "should_fail": False,
+        "fail_reason": "tecUNFUNDED_PAYMENT",
+        "payments": {},
+        "submit_count": 0,
+        "iou_balance": Decimal("100000"),
+    }
 
-    def fake_submit_payment(from_seed, destination_address, amount):
+    def fake_submit_payment(from_seed, destination_address, amount, remittance_id=None, *args, **kwargs):
         if state["should_fail"]:
             raise RuntimeError(f"Payment failed: {state['fail_reason']}")
+        state["submit_count"] += 1
+        if remittance_id:
+            existing = state["payments"].get(remittance_id)
+            if existing is not None:
+                return existing
+            tx_hash = f"FAKE_PAYMENT_TX_{remittance_id}"
+            state["payments"][remittance_id] = tx_hash
+            return tx_hash
         return f"FAKE_PAYMENT_TX_{destination_address}_{amount}"
+
+    def fake_get_issued_currency_balance(address):
+        return Decimal(state["iou_balance"])
 
     monkeypatch.setattr("app.services.recipient_wallet.generate_and_fund_wallet", fake_generate_and_fund_wallet)
     monkeypatch.setattr("app.services.recipient_wallet.establish_trustline", fake_establish_trustline)
     monkeypatch.setattr("app.services.settlement.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.services.xrpl_provisioning.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.services.settlement.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.services.xrpl_provisioning.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.services.platform_wallet.get_issued_currency_balance", fake_get_issued_currency_balance)
+    monkeypatch.setattr("app.api.routes.cash_out.submit_issued_currency_payment", fake_submit_payment)
+    monkeypatch.setattr("app.api.routes.platform_wallet.get_issued_currency_balance", fake_get_issued_currency_balance)
 
     return state
 

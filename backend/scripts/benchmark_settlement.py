@@ -13,6 +13,7 @@ reasonable - this specifically measures live network latency, not
 something that benefits from a bigger sample.
 
     python -m scripts.benchmark_settlement [count]
+    python -m scripts.benchmark_settlement --enqueue-only
 """
 
 import sys
@@ -142,7 +143,10 @@ def benchmark_settlement_processing(db, sender, beneficiary, fee_config, base_ra
 
 
 def main():
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 5
+    args = [a for a in sys.argv[1:] if a]
+    enqueue_only = "--enqueue-only" in args
+    args = [a for a in args if a != "--enqueue-only"]
+    n = int(args[0]) if args else 5
 
     db = SessionLocal()
     try:
@@ -159,6 +163,10 @@ def main():
 
         print("== Message queue throughput (200 enqueue operations) ==")
         benchmark_queue_throughput(db, sender, beneficiary, fee_config, base_rate, n=200)
+
+        if enqueue_only:
+            print("Skipping live XRPL settlement (--enqueue-only).")
+            return
 
         print()
         print(f"== RLUSD settlement processing time ({n} real XRPL Testnet transactions) ==")

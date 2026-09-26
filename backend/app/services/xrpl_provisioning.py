@@ -1,7 +1,8 @@
 from decimal import Decimal
 
 from xrpl.models.amounts import IssuedCurrencyAmount
-from xrpl.models.transactions import Payment, TrustSet
+from xrpl.models.requests import AccountLines
+from xrpl.models.transactions import Memo, Payment, TrustSet
 from xrpl.transaction import submit_and_wait
 from xrpl.wallet import Wallet, generate_faucet_wallet
 
@@ -38,13 +39,63 @@ def establish_trustline(wallet: Wallet) -> str:
     return response.result["hash"]
 
 
-def submit_issued_currency_payment(from_seed: str, destination_address: str, amount: Decimal) -> str:
+def get_issued_currency_balance(address: str) -> Decimal:
+    """Return this address's balance of the configured IOU (UCTUSD).
+
+    Queries account_lines and sums trust lines whose currency matches
+    ``settings.xrpl_currency_code`` and whose counterparty (``account``)
+    is ``settings.xrpl_issuer_address``. Returns Decimal("0") if no
+    matching line exists.
+    """
+    settings = get_settings()
+    client = get_xrpl_client()
+    total = Decimal("0")
+    marker = None
+    while True:
+        request_kwargs: dict = {"account": address}
+        if marker is not None:
+            request_kwargs["marker"] = marker
+        response = client.request(AccountLines(**request_kwargs))
+        result = response.result
+        for line in result.get("lines") or []:
+            if (
+                line.get("currency") == settings.xrpl_currency_code
+                and line.get("account") == settings.xrpl_issuer_address
+            ):
+                total += Decimal(str(line.get("balance", "0")))
+        marker = result.get("marker")
+        if marker is None:
+            break
+    return total
+
+
+def _payment_memos(remittance_id: str | None) -> list[Memo] | None:
+    if not remittance_id:
+        return None
+    return [
+        Memo(
+            memo_data=remittance_id.encode("utf-8").hex(),
+            memo_type="remittance_id".encode("utf-8").hex(),
+        )
+    ]
+
+
+def submit_issued_currency_payment(
+    from_seed: str,
+    destination_address: str,
+    amount: Decimal,
+    remittance_id: str | None = None,
+) -> str:
     """FR-22: submit a Payment transaction moving RLUSD/UCTUSD on-chain.
 
     Takes the sender's seed directly (rather than a Wallet object) so
     callers never need to construct a Wallet themselves - keeps the one
     place private keys get materialised into signing objects contained
     here (NFR-05).
+
+    `remittance_id` is written as XRPL MemoData so a Payment can be
+    correlated with the remittance it settles. It is optional so older
+    call sites and tests keep working.
 
     Returns the transaction hash. Raises RuntimeError if the ledger
     reports anything other than tesSUCCESS - e.g. tecUNFUNDED_PAYMENT if
@@ -55,7 +106,7 @@ def submit_issued_currency_payment(from_seed: str, destination_address: str, amo
     client = get_xrpl_client()
     wallet = Wallet.from_seed(from_seed)
 
-    payment = Payment(
+    payment_kwargs = dict(
         account=wallet.classic_address,
         destination=destination_address,
         amount=IssuedCurrencyAmount(
@@ -64,6 +115,11 @@ def submit_issued_currency_payment(from_seed: str, destination_address: str, amo
             value=str(amount),
         ),
     )
+    memos = _payment_memos(remittance_id)
+    if memos is not None:
+        payment_kwargs["memos"] = memos
+
+    payment = Payment(**payment_kwargs)
     response = submit_and_wait(payment, client, wallet)
     tx_result = response.result["meta"]["TransactionResult"]
     if tx_result != "tesSUCCESS":

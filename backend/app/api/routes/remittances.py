@@ -2,18 +2,19 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
 from app.core.deps import get_current_user, require_admin, require_approved_kyc
 from app.database import get_db
 from app.models.beneficiary import Beneficiary
 from app.models.fee_config import FeeConfig
-from app.models.remittance import Remittance, RemittanceStatus
-from app.models.user import User
+from app.models.remittance import Remittance, RemittanceStatus, _tracking_ref
+from app.models.user import User, UserRole
 from app.schemas.remittance import CashInInitiateRequest, RemittanceOut, RemittanceQuoteRequest
 from app.services.exchange_rate import get_usd_zar_rate
 from app.services.limits import get_tier_limits, tier_for_user, usage_this_month, usage_today
-from app.services.quote import build_quote
+from app.services.quote import build_quote, fee_consumes_send, quote_expires_at
 from app.services.settlement import enqueue_settlement
 
 router = APIRouter(prefix="/remittances", tags=["remittances"])
@@ -24,6 +25,15 @@ def _get_fee_config(db: DBSession) -> FeeConfig:
     if config is None:
         raise RuntimeError("Fee configuration is not seeded")
     return config
+
+
+def _allocate_tracking_ref(db: DBSession) -> str:
+    for _ in range(8):
+        ref = _tracking_ref()
+        exists = db.query(Remittance.id).filter(Remittance.tracking_ref == ref).first()
+        if exists is None:
+            return ref
+    raise RuntimeError("Could not allocate a unique tracking_ref")
 
 
 @router.post("", response_model=RemittanceOut, status_code=status.HTTP_201_CREATED)
@@ -72,10 +82,16 @@ def create_remittance_quote(
     fee_config = _get_fee_config(db)
     base_rate = get_usd_zar_rate()
     quote = build_quote(payload.zar_amount, base_rate, fee_config)
+    if fee_consumes_send(payload.zar_amount, quote):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Transaction fee would consume the entire send amount",
+        )
 
     remittance = Remittance(
         sender_id=current_user.id,
         beneficiary_id=beneficiary.id,
+        tracking_ref=_allocate_tracking_ref(db),
         zar_amount=payload.zar_amount,
         exchange_rate=quote.exchange_rate,
         fx_margin_percentage=quote.fx_margin_percentage,
@@ -84,9 +100,16 @@ def create_remittance_quote(
         cash_out_fee_percentage=quote.cash_out_fee_percentage,
         estimated_cash_out_fee=quote.estimated_cash_out_fee,
         estimated_recipient_payout=quote.estimated_recipient_payout,
+        expires_at=quote_expires_at(),
     )
     db.add(remittance)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        remittance.tracking_ref = _allocate_tracking_ref(db)
+        db.add(remittance)
+        db.commit()
     db.refresh(remittance)
     return remittance
 
@@ -104,6 +127,29 @@ def list_my_remittances(current_user: User = Depends(get_current_user), db: DBSe
     )
 
 
+@router.get("/track/{tracking_ref}", response_model=RemittanceOut)
+def track_remittance(
+    tracking_ref: str,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    """Look up a remittance by its human-readable tracking_ref (MG + 10 digits).
+
+    Authenticated sender, linked recipient, or admin may view it.
+    """
+    remittance = db.query(Remittance).filter(Remittance.tracking_ref == tracking_ref).first()
+    if remittance is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Remittance not found")
+
+    is_sender = remittance.sender_id == current_user.id
+    is_admin = current_user.role == UserRole.ADMIN
+    linked_user_id = remittance.beneficiary.linked_user_id if remittance.beneficiary is not None else None
+    is_recipient = linked_user_id is not None and linked_user_id == current_user.id
+    if not (is_sender or is_admin or is_recipient):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to view this remittance")
+    return remittance
+
+
 @router.get("", response_model=list[RemittanceOut])
 def list_remittances(
     remittance_status: RemittanceStatus | None = None,
@@ -116,6 +162,38 @@ def list_remittances(
     if remittance_status is not None:
         query = query.filter(Remittance.status == remittance_status)
     return query.order_by(Remittance.created_at.desc()).all()
+
+
+@router.post("/{remittance_id}/cancel", response_model=RemittanceOut)
+def cancel_remittance(
+    remittance_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    """Sender-only cancel of a still-valid quoted remittance. Frees the limit."""
+    remittance = (
+        db.query(Remittance)
+        .filter(Remittance.id == remittance_id, Remittance.sender_id == current_user.id)
+        .first()
+    )
+    if remittance is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Remittance not found")
+    if remittance.status != RemittanceStatus.QUOTED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Only a quoted remittance can be cancelled (current: '{remittance.status.value}')",
+        )
+    if remittance.is_expired():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Expired quotes cannot be cancelled",
+        )
+
+    remittance.status = RemittanceStatus.CANCELLED
+    db.add(remittance)
+    db.commit()
+    db.refresh(remittance)
+    return remittance
 
 
 @router.post("/{remittance_id}/cash-in", response_model=RemittanceOut)
@@ -134,10 +212,20 @@ def initiate_cash_in(
     )
     if remittance is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Remittance not found")
+    if remittance.status == RemittanceStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cash-in cannot be initiated for a cancelled quote",
+        )
     if remittance.status != RemittanceStatus.QUOTED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cash-in can only be initiated from status 'quoted' (current: '{remittance.status.value}')",
+        )
+    if remittance.is_expired():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cash-in cannot be initiated for an expired quote",
         )
 
     remittance.cash_in_method = payload.method

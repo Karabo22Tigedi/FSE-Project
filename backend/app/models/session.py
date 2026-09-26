@@ -1,4 +1,3 @@
-import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -12,12 +11,11 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-def _token() -> str:
-    return secrets.token_urlsafe(48)
-
-
 class Session(Base):
     """An opaque bearer session token (FR-02/FR-02a).
+
+    Only SHA-256(hex) of the urlsafe token is stored (`token_hash`). The raw
+    bearer token is returned once at login and never persisted.
 
     Assumption: neither functional_requirements.pdf nor project_brief.pdf
     mandates a specific token mechanism - FR-02/FR-02a just require login
@@ -42,7 +40,7 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    token: Mapped[str] = mapped_column(String(128), unique=True, index=True, default=_token)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(

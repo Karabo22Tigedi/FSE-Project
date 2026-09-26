@@ -1,119 +1,107 @@
 # Performance Testing Results
 
-Run 2026-08-31 against the FastAPI backend running locally (`uvicorn
-app.main:app`, SQLite, single process) on the author's machine — not a
-production-equivalent host, so treat absolute numbers as indicative rather
-than a capacity guarantee, but the relative comparisons (which endpoints are
-slow, what dominates settlement time) hold regardless of hardware.
+Re-run on this fork (`Karabo22Tigedi/FSE-Project`) on **2026-09-07**, against the live local demo stack on a Windows laptop (`uvicorn app.main:app`, SQLite, single process, Redis on `localhost:6379`). Absolute numbers are indicative of this host (including OneDrive-backed SQLite), not a production capacity guarantee. Relative comparisons — which endpoints are slow, what dominates settlement — are the useful result.
+
+Kerry-Lynn Whyte’s sketch measurements from **2026-08-31** (HTTP) and **2026-09-01** (Redis enqueue + five live Testnet settlements) remain in `backend/perf/results/run1_*.csv` for comparison. HTTP load, queue enqueue, and five live Testnet settlements were all re-run on this fork on **2026-09-07**.
 
 ## 1. API load test (NFR-01, NFR-02)
 
-**Setup**: 50 synthetic KYC-approved sender accounts (`scripts/seed_synthetic_users.py`,
-project_brief.pdf's "generate synthetic users" note), each with its own
-beneficiary and raised remittance limits so the run measures API performance
-rather than getting gated by business-rule limits (already covered by the
-pytest suite). Locust (`perf/locustfile.py`), 50 concurrent users, spawn
-rate 10/s, 60s run, hitting a realistic mix of the read-heavy endpoints
-(profile, KYC status, limits, beneficiaries, wallet) plus quote creation
-(the one write in the mix). Settlement processing and anything touching the
-live XRPL Testnet was deliberately excluded — see §2.
+**Setup:** 50 synthetic KYC-approved sender accounts (`python -m scripts.seed_synthetic_users 50`). The seed raises the verified daily/monthly limits so quote creation measures API time rather than FR-16/17 gating (already covered by pytest). Locust (`backend/perf/locustfile.py`), 50 concurrent users, spawn 10/s, 60 s, mix of profile / KYC status / limits / beneficiaries / wallet plus quote creation. Quote amounts are **R100–R500** so they sit above the default R25 fixed fee — this fork returns 422 when fees consume the principal. Settlement and anything that lazily funds a real XRPL account are excluded (see §2).
 
-**Result: 2,324 requests, 0 failures, 39.3 req/s aggregate throughput.**
+Verified limits were restored to the demo defaults (R3,000 / R25,000) after the run. Load-test quotes were deleted; the 50 `loadtest-sender-*` accounts remain (re-seeding is idempotent).
+
+**Result: 2,218 requests, 0 failures, 37.2 req/s aggregate throughput.**
 
 | Endpoint | Requests | Median (ms) | Avg (ms) | p95 (ms) | p99 (ms) | Max (ms) |
 |---|---:|---:|---:|---:|---:|---:|
-| `POST /auth/login` | 50 | 400 | 396 | 430 | 470 | 467 |
-| `GET /users/me` | 479 | 6 | 6.8 | 13 | 18 | 106 |
-| `GET /kyc/me/status` | 273 | 5 | 7.4 | 16 | 30 | 95 |
-| `GET /limits/me` | 353 | 8 | 9.5 | 18 | 23 | 80 |
-| `GET /beneficiaries` | 329 | 6 | 8.2 | 15 | 24 | 93 |
-| `GET /wallet/me` | 344 | 8 | 9.0 | 17 | 22 | 120 |
-| `POST /remittances` (quote) | 496 | 11 | 12.8 | 22 | 27 | 47 |
-| **Aggregated** | 2,324 | 8 | 17.5 | 20 | 400 | 467 |
+| `POST /auth/login` | 50 | 850 | 855 | 1,200 | 1,300 | 1,277 |
+| `GET /users/me` | 453 | 20 | 40 | 79 | 750 | 1,200 |
+| `GET /kyc/me/status` | 299 | 23 | 43 | 110 | 520 | 779 |
+| `GET /limits/me` | 339 | 32 | 56 | 140 | 570 | 942 |
+| `GET /beneficiaries` | 300 | 23 | 45 | 110 | 690 | 1,012 |
+| `GET /wallet/me` | 316 | 33 | 63 | 200 | 590 | 1,129 |
+| `POST /remittances` (quote) | 461 | 66 | 106 | 320 | 860 | 1,370 |
+| **Aggregated** | 2,218 | 35 | 79 | 290 | 930 | 1,370 |
 
-**NFR-01 (response within 2s under normal conditions):** met with wide
-margin — every endpoint's p99 is under half a second, and the slowest
-individual request across the whole run (467ms, a login) is still well
-inside the 2s budget.
+Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html) (inline SVG), plus [`response_times.svg`](backend/perf/results/response_times.svg) and [`rps_history.svg`](backend/perf/results/rps_history.svg). Full Locust report: [`backend/perf/results/run2.html`](backend/perf/results/run2.html). Raw CSVs: `run2_stats.csv`, `run2_stats_history.csv`.
 
-**NFR-02 (stable under ~50 concurrent users):** met — zero failures across
-2,324 requests, throughput held steady across the full run (no degradation
-between the three progress snapshots Locust printed during the run).
+**NFR-01 (response within 2 s under normal conditions):** met — every endpoint’s p99 is under 1.4 s, and the slowest request in the run (1,370 ms, a quote during the login spawn) is still inside the 2 s budget. After spawn, authenticated reads sit around 20–35 ms median.
 
-**Bottleneck identified — login latency:** `/auth/login` is ~50x slower
-than every other endpoint (~400ms vs ~7-13ms median). This is bcrypt
-password verification, which is deliberately expensive by design (NFR-03) -
-not a defect, but worth knowing it's the practical ceiling on login
-throughput specifically. It's not a concern at this scale (50 concurrent
-logins still resolved in under half a second each) but would be the first
-place to look if login ever needed to scale to a much higher rate (e.g.
-a configurable bcrypt work factor, or moving to a session-token refresh
-model that logs in less often).
+**NFR-02 (stable under ~50 concurrent users):** met — zero failures across 2,218 requests. Throughput climbed with the spawn and then held ~37–39 req/s for the rest of the minute (Figure 2). No error spike, no collapse.
 
-## 2. Message-queue throughput and RLUSD settlement time
+**Bottleneck — login latency (bcrypt):** `/auth/login` is ~25–40× slower than the read endpoints (~850 ms median vs ~20–33 ms). That is bcrypt password verification, deliberately expensive (NFR-03), not a defect. On a single uvicorn worker the 50 logins at spawn also briefly stall SQLite-backed reads (p99 of `/users/me` etc. in the hundreds of ms, while the median stays low). At this scale it still clears 2 s; the first place to look for higher login rates would be bcrypt work factor, more workers, or refresh tokens so password checks happen less often.
 
-Measured separately from the HTTP load test (`scripts/benchmark_settlement.py`)
-because settlement makes real network calls to the XRP Ledger Testnet -
-mixing that into the concurrent-user run would measure Testnet/faucet
-latency rather than this API's own performance.
+## 2. Message-queue throughput and RLUSD/UCTUSD settlement time
 
-Re-measured 2026-09-01 after swapping the settlement queue from a
-DB-polling table to Redis Streams (basics.pdf's recommendation) - enqueue
-now does a DB write *and* a Redis `XADD` round-trip, so the throughput
-number below is a bit lower than an earlier DB-only measurement, which is
-expected and not a regression to worry about.
+Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) because settlement makes real JSON-RPC calls to XRPL Testnet.
+
+**Queue enqueue and settlement (re-measured 2026-09-07 on this fork):** 200 `enqueue_settlement` calls (SQLite insert + commit, Redis `XADD`, then a second commit storing `stream_entry_id`), then five live treasury-to-recipient Testnet Payments. Enqueue-only entries were removed from the stream afterwards so they could not sit ahead of demo work.
+
+| Metric | Result | When |
+|---|---|---|
+| Message-queue enqueue throughput (this host) | 200 messages in 6.839 s → **29.2 msg/s** | 2026-09-07, this fork |
+| Message-queue enqueue throughput (sketch, same Redis Streams path) | 200 messages in 0.387 s → **517 msg/s** | 2026-09-01, Kerry’s machine |
+| RLUSD/UCTUSD settlement processing time | 5 real Testnet transactions in 87.486 s → **17.5 s/transaction avg** | 2026-09-07, this fork |
+| Settlement success rate (this sample) | 5/5 (100%) | 2026-09-07 |
+| Prior Testnet sample (same script, Kerry’s machine) | 5 txs in 61.9 s → 12.4 s/tx, 5/5 | 2026-09-01 |
+
+**Bottleneck — enqueue I/O on this host:** 29 msg/s is plenty next to a ~17 s ledger wait, but it is far below the sketch’s 517 msg/s. Two SQLite commits per enqueue (outbox row, then `stream_entry_id`) plus Redis `XADD`, on a OneDrive-backed `.db` file, dominate. That is host I/O and the crash-safe outbox, not a missing index. A local SSD SQLite or Postgres would look much closer to the 2026-09-01 figure.
+
+**Bottleneck — XRPL ledger close time:** enqueueing is not the ceiling. Each settlement submits a Payment and waits for Testnet to close and validate (`submit_and_wait`). XRPL targets a ~3–5 s ledger; the 17.5 s average includes Testnet jitter and `LastLedgerSequence` retries (the 2026-08-31 sample was also ~17 s/tx; 2026-09-01 was 12.4 s/tx). Application code in `app/services/settlement.py` cannot shrink ledger consensus. If volume ever needed to exceed one-in-flight per worker, add consumers to the `settlement_workers` Redis group rather than micro-optimising the per-tx path.
+
+### 2a. Larger settlement sample (re-run 2026-09-24)
+
+The 2026-09-07 settlement sample was only five payments, so `scripts.benchmark_settlement 15` was re-run on **2026-09-24** to give the timing a spread. Host: macOS (arm64), Python 3.10.13, Redis 8.10.1 on `localhost:6379`, uvicorn running alongside, SQLite on local disk (not OneDrive). Same script and same platform treasury wallet as before; the recipient's XRPL account and TrustLine already existed, so no faucet or TrustSet time is in these numbers. The script also re-ran the 200-message enqueue timing.
 
 | Metric | Result |
-|---|---:|
-| Message-queue enqueue throughput (Redis Streams) | 200 messages in 0.387s → **517 msg/s** |
-| RLUSD/UCTUSD settlement processing time | 5 real Testnet transactions in 61.9s → **12.4s/transaction avg** |
-| Settlement success rate | 5/5 (100%) |
+|---|---|
+| Message-queue enqueue throughput | 200 messages in 3.228 s → **62.0 msg/s** |
+| Settlement processing, real Testnet Payments | 15 in 226.158 s → **15.08 s/transaction avg** |
+| Settlement success / failure | **15 / 15 completed, 0 failed** (100%); all 15 transaction hashes stored |
+| Per-transaction spread (14 measurable gaps) | min 12.4 s · median 15.7 s · mean 15.3 s · p95 16.1 s · max 16.2 s · stdev 1.2 s |
+| Treasury reconciliation | UCTUSD 99,428.015145 → 99,405.988845: a drop of 22.026300, exactly the sum of the 15 payment amounts |
 
-**Bottleneck identified — XRPL ledger consensus time:** enqueueing (a
-SQLite write plus a Redis `XADD`) is fast and not a concern at this
-project's scale. Settlement is a different story: each transaction has to
-be submitted and then wait for XRPL Testnet to close and validate a ledger
-(`submit_and_wait`) before the API considers it confirmed - the XRP Ledger
-targets a ~3-5s ledger close time, so a handful of seconds per transaction
-is inherent to using a real blockchain for settlement, not something the
-application code can optimize away. The ~12s average also reflects real
-Testnet variability (congestion, retries against `LastLedgerSequence`)
-between runs - an earlier run on 2026-08-31 saw ~17s/transaction with the
-same code, purely due to network conditions that day. Practical
-implication: the settlement worker's throughput ceiling is roughly the
-ledger's own transaction rate, not anything in `app/services/settlement.py`
-- if remittance volume ever needed to exceed that, the mitigation is
-standard queue-worker scaling (adding more consumers to the
-`settlement_workers` Redis consumer group) rather than optimizing the
-per-transaction path, since each transaction already
-does the minimum required work.
+Method note: the script prints only the total and the average. Per-transaction durations were derived from the gaps between consecutive `settlement_messages.processed_at` timestamps (the worker settles one message at a time). The first payment's duration cannot be separated from script setup, so it is excluded from the spread; the 15.08 s average is the script's own figure across all 15.
+
+Reading it: the 15-payment average (15.1 s) sits between the two earlier samples (12.4 s and 17.5 s per transaction), and individual payments cluster around two values (about 12.4 s and about 15.5–16 s), which fits ledger-close timing rather than application work. Enqueue was 62 msg/s here against 29.2 msg/s on the OneDrive-backed Windows host and 517 msg/s in the 2026-09-01 sketch sample; this run did not isolate why the fork is slower than the sketch (the extra commit per enqueue for the outbox is the likely cost, but that is not measured here). The benchmark leaves 15 settled `benchmark-sender` remittances in the development database, and the treasury 22.03 UCTUSD lower.
 
 ## 3. Concurrent-use behaviour and failure rates
 
-- 0 failures across the entire 50-concurrent-user, 60s HTTP run (§1).
-- 0 failures across 5/5 real settlement transactions (§2) - all landed
-  `tesSUCCESS` on the first attempt, no retries needed.
-- Failure-handling logic itself (FR-24: a failed settlement must not credit
-  the recipient) is exercised deterministically in the automated test suite
-  (`backend/tests/test_settlement.py`) with a mocked XRPL failure, rather
-  than performance-tested live - that path isn't something to load-test, it's
-  a correctness property already covered by 82 passing pytest tests.
+- 0 failures across the 50-user, 60 s HTTP run (§1). HTTP success rate **100%** (2,218 / 2,218).
+- An earlier 60 s attempt used the sketch locust mix (R10–R100). About 18% of `POST /remittances` returned 422 because the default R25 fee consumed the principal — a correctness guard on this fork, not an overload failure. The locustfile now uses R100–R500; that mix is what §1 reports.
+- Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5, and the 2026-09-24 sample (§2a) was **15/15**.
+- Not load-tested: concurrent settlement (the worker handles one message at a time) and concurrent quotes from a single sender (the limits race noted in the specification's limitations). Concurrency in §1 is 50 simultaneous HTTP users.
+- Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **132** pytest tests.
 
-## How to reproduce
+## How to reproduce (Windows)
 
-```bash
-brew services start redis                       # if not already running
+Redis must already be on `localhost:6379` (Memurai, `docker run -d -p 6379:6379 redis`, or WSL `redis-server`). Homebrew `brew services start redis` is optional on macOS, not required here.
 
+API on `http://127.0.0.1:8000` (`GET /health` → `{"status":"ok"}`). Locust is in `backend/requirements.txt` (`locust==2.46.0`); install into the project venv only if missing.
+
+```powershell
 cd backend
-source .venv/bin/activate
-python -m scripts.setup_platform_wallet        # once per environment
+.\.venv\Scripts\Activate.ps1
 python -m scripts.seed_synthetic_users 50
-uvicorn app.main:app &                          # or --reload for dev
-locust -f perf/locustfile.py --host=http://127.0.0.1:8000 \
-    --users 50 --spawn-rate 10 --run-time 60s --headless \
-    --csv=perf/results/run1 --html=perf/results/run1.html
+
+# Terminal A — if the API is not already up:
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Terminal B
+python -m locust -f perf/locustfile.py --host=http://127.0.0.1:8000 `
+    --users 50 --spawn-rate 10 --run-time 60s --headless `
+    --csv=perf/results/run2 --html=perf/results/run2.html
+python perf/render_charts.py
+
+# Restore demo verified limits (seed raises them so quotes are not FR-16 gated)
+python -c "from decimal import Decimal; from app.database import SessionLocal; from app.models.limit_tier import LimitTier, LimitTierKey; db=SessionLocal(); t=db.query(LimitTier).filter(LimitTier.tier_key==LimitTierKey.VERIFIED).first(); t.daily_limit_zar=Decimal('3000'); t.monthly_limit_zar=Decimal('25000'); db.add(t); db.commit(); db.close(); print('verified limits restored')"
+```
+
+Optional enqueue-only timing (creates then deletes 200 synthetic remittances; leaves `benchmark-sender@example.com` / `benchmark-recipient@example.com`). Omit `--enqueue-only` only if you intend five live Testnet Payments from the demo treasury. The 17.5 s/tx figures in §2 are the 2026-09-07 sample.
+
+```powershell
+python -m scripts.benchmark_settlement --enqueue-only
 python -m scripts.benchmark_settlement 5
 ```
 
-Full Locust output (per-request percentile breakdown, charts) is in
-`backend/perf/results/run1.html` and the raw CSVs alongside it.
+`perf/synthetic_users.json` is gitignored. Charts and Locust HTML live under `backend/perf/results/`.

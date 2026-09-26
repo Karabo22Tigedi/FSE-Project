@@ -24,10 +24,13 @@ class RecipientWallet(Base):
     app.services.recipient_wallet.ensure_xrpl_account): funded via the
     free/unlimited faucet and given a TrustLine to the issuer (FR-29).
 
-    `balance` is the platform's cached ledger view of this account's
-    RLUSD/UCTUSD holdings, updated only by the settlement worker (FR-26)
-    and cash-out (FR-30) - it should always match the real on-chain
-    balance, since nothing else moves funds through this account.
+    `balance` is the **spendable** internal ledger. The settlement worker
+    credits it (`recipient_wallet_row.balance += remittance.rlusd_amount`)
+    and cash-out atomically debits it. It is not a live XRPL balance:
+    requested/approved cash-outs still represent tokens reserved on-chain.
+    Admin complete burns UCTUSD by paying the issuer; completed amounts
+    are no longer included in on_chain_balance. GET /wallet/me reports
+    on_chain_balance as spendable plus those outstanding reserved amounts.
     """
 
     __tablename__ = "recipient_wallets"

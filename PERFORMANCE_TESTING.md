@@ -1,6 +1,6 @@
 # Performance Testing Results
 
-Re-run on this fork (`Karabo22Tigedi/FSE-Project`) on **2026-09-07**, against the live local demo stack on a Windows laptop (`uvicorn app.main:app`, SQLite, single process, Redis on `localhost:6379`). Absolute numbers are indicative of this host (including OneDrive-backed SQLite), not a production capacity guarantee. Relative comparisons — which endpoints are slow, what dominates settlement — are the useful result.
+Re-run on the group fork (`Karabo22Tigedi/FSE-Project`, since merged into the main source `kerryw33/FSE-Project`) on **2026-09-07**, against the live local demo stack on a Windows laptop (`uvicorn app.main:app`, SQLite, single process, Redis on `localhost:6379`). Absolute numbers are indicative of this host (including OneDrive-backed SQLite), not a production capacity guarantee. Relative comparisons — which endpoints are slow, what dominates settlement — are the useful result.
 
 Kerry-Lynn Whyte’s sketch measurements from **2026-08-31** (HTTP) and **2026-09-01** (Redis enqueue + five live Testnet settlements) remain in `backend/perf/results/run1_*.csv` for comparison. HTTP load, queue enqueue, and five live Testnet settlements were all re-run on this fork on **2026-09-07**.
 

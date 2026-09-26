@@ -2,7 +2,7 @@
 
 UCT ECO5040W **Group 3** (Annita Ngoma, Karabo Tigedi, Kerry-Lynn Whyte, Liltha Mzamo, Nikola Milosavljevic).
 
-This repository is **our** fork (`Karabo22Tigedi/FSE-Project`). Kerry’s earlier GitHub tree was a working sketch. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances, UCTUSD burn). **132** pytest tests collected on this tree.
+This repository (`kerryw33/FSE-Project`) is the main source for the project. It began as Kerry’s working sketch; the group’s patches were made on `Karabo22Tigedi/FSE-Project` and are merged back here. The API here is the patched system (quote TTL and cancel, hashed sessions, Alembic, settlement outbox / PEL reclaim, honest wallet balances, UCTUSD burn). **133** pytest tests collected on this tree.
 
 Academic prototype only: simulated ZAR cash-in, UCTUSD settlement on the XRP Ledger **Testnet**, simulated fiat cash-out with on-chain burn to issuer. No real customer funds, no Mainnet credentials.
 

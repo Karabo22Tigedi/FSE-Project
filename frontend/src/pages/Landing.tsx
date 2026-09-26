@@ -57,8 +57,8 @@ const CONTACT_FACTS = [
   },
   {
     label: "Source",
-    body: "github.com/Karabo22Tigedi/FSE-Project",
-    href: "https://github.com/Karabo22Tigedi/FSE-Project",
+    body: "github.com/kerryw33/FSE-Project",
+    href: "https://github.com/kerryw33/FSE-Project",
   },
 ] as const
 
@@ -366,13 +366,14 @@ export function Landing() {
         <div className="scan__cursor-appears" />
         <div className="scan__text-wrapper">
           <h1 className="scan__heading">
-            Scan
+            Share
             <br />
-            &amp; Go
+            &amp; Track
           </h1>
           <div className="scan__text">
-            Turn the tracking ref into a QR code. Scan {SAMPLE_TRACKING_REF} on a phone to follow
-            settlement.
+            Every transfer gets a tracking reference like {SAMPLE_TRACKING_REF} and its own QR
+            code. Scan it on a phone to open the track page and follow settlement. This one opens
+            the app.
           </div>
         </div>
         <div className="scan__code-wrapper">

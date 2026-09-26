@@ -2,68 +2,20 @@ import { useEffect, useRef, type RefObject } from "react"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { isMobileLayout, prefersReducedMotion } from "./motion"
+import { publicUrl } from "../api/publicUrl"
+import { QrCode } from "../components/QrCode"
 
 gsap.registerPlugin(ScrollTrigger)
 
 export const SAMPLE_TRACKING_REF = "MG1029384756"
 
-function finder(grid: boolean[][], row: number, col: number): void {
-  for (let r = 0; r < 7; r += 1) {
-    for (let c = 0; c < 7; c += 1) {
-      const edge = r === 0 || r === 6 || c === 0 || c === 6
-      const core = r >= 2 && r <= 4 && c >= 2 && c <= 4
-      grid[row + r][col + c] = edge || core
-    }
-  }
-}
-
-function reserved(row: number, col: number, size: number): boolean {
-  const inFinder = (r: number, c: number) => r < 8 && c < 8
-  if (inFinder(row, col)) return true
-  if (inFinder(row, size - 1 - col)) return true
-  if (inFinder(size - 1 - row, col)) return true
-  if (row === 6 || col === 6) return true
-  return false
-}
-
-function qrModules(payload: string, size = 25): boolean[][] {
-  const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => false))
-  finder(grid, 0, 0)
-  finder(grid, 0, size - 7)
-  finder(grid, size - 7, 0)
-  for (let i = 8; i < size - 8; i += 1) {
-    grid[6][i] = i % 2 === 0
-    grid[i][6] = i % 2 === 0
-  }
-  let n = 0
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (reserved(row, col, size)) continue
-      const ch = payload.charCodeAt(n % payload.length)
-      grid[row][col] = (ch + row * 17 + col * 11 + n * 3) % 3 !== 0
-      n += 1
-    }
-  }
-  return grid
-}
-
 export function TrackingQr({ className }: { className?: string }) {
-  const modules = qrModules(SAMPLE_TRACKING_REF)
-  const size = modules.length
   return (
-    <svg
+    <QrCode
       className={className}
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label={`Sample tracking QR for ${SAMPLE_TRACKING_REF}`}
-    >
-      <title>{SAMPLE_TRACKING_REF}</title>
-      {modules.flatMap((row, r) =>
-        row.map((on, c) =>
-          on ? <rect key={`${r}-${c}`} x={c} y={r} width={1} height={1} fill="#151515" /> : null,
-        ),
-      )}
-    </svg>
+      value={publicUrl("/app")}
+      label="QR code that opens the XRPL Remit app"
+    />
   )
 }
 

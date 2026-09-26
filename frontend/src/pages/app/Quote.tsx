@@ -12,6 +12,7 @@ import {
 } from "./format"
 import { QuoteBreakdown, RemittanceBadge, StatusTimeline, TxHash } from "./StatusTimeline"
 import { staggerStyle } from "./walletFormat"
+import { TrackQrCard } from "../../components/QrCode"
 
 const CASH_IN_METHODS: { value: CashInMethod; hint: string }[] = [
   { value: "agent_cash", hint: "Pay ZAR in cash at a partner agent." },
@@ -191,6 +192,7 @@ export function Quote() {
             <h2>Locked quote</h2>
             <QuoteBreakdown remittance={remittance} />
             <TxHash hash={remittance.xrpl_settlement_tx_hash} />
+            <TrackQrCard trackingRef={remittance.tracking_ref} />
             <div className="action-row">
               <Link className="pill pill--ghost" to={`/app/track/${remittance.tracking_ref}`}>
                 Track

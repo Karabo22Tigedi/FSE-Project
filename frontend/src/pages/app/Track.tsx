@@ -6,6 +6,7 @@ import type { Remittance } from "../../api/types"
 import { errorDetail, formatDateTime, isExpired } from "./format"
 import { QuoteBreakdown, RemittanceBadge, StatusTimeline, TxHash } from "./StatusTimeline"
 import { staggerStyle } from "./walletFormat"
+import { TrackQrCard } from "../../components/QrCode"
 
 export function Track() {
   const { ref } = useParams<{ ref: string }>()
@@ -123,6 +124,7 @@ export function Track() {
             {remittance.status === "settled" ? (
               <TxHash hash={remittance.xrpl_settlement_tx_hash} />
             ) : null}
+            <TrackQrCard trackingRef={remittance.tracking_ref} />
           </article>
 
           <article className="app-card stagger-in" style={staggerStyle(1)}>

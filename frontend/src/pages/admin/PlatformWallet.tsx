@@ -74,7 +74,7 @@ export function PlatformWallet() {
     <>
       <h1>Platform wallet</h1>
       <p className="page-lead">
-        {user ? `${user.full_name}. ` : null}
+        {user ? `Signed in as ${user.full_name}. ` : null}
         The treasury account on XRPL Testnet that holds UCTUSD for settling sends.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}

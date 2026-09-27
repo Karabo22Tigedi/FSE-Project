@@ -7,6 +7,32 @@ import { errorDetail, formatZar, kycLabel } from "./format"
 import { Badge } from "./StatusTimeline"
 import { staggerStyle } from "./walletFormat"
 
+function LimitBar({ used, limit, label }: { used: string; limit: string; label: string }) {
+  const usedN = Number(used)
+  const limitN = Number(limit)
+  const pct = limitN > 0 ? Math.min(100, (usedN / limitN) * 100) : 0
+  const level = limitN > 0 && pct >= 100 ? "full" : pct >= 80 ? "high" : "ok"
+  return (
+    <div
+      className="limit-bar"
+      role="progressbar"
+      aria-label={`${label} limit used`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+      aria-valuetext={`${formatZar(used)} of ${formatZar(limit)} used`}
+    >
+      <div className={`limit-bar__fill limit-bar__fill--${level}`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+function usedPercent(used: string, limit: string): string {
+  const limitN = Number(limit)
+  if (!(limitN > 0)) return ""
+  return ` (${Math.round(Math.min(100, (Number(used) / limitN) * 100))}%)`
+}
+
 export function Home() {
   const { user: sessionUser } = useAuth()
   const [me, setMe] = useState<User | null>(sessionUser)
@@ -74,17 +100,25 @@ export function Home() {
           <p className="hint">Tier {limits.tier}</p>
           <div className="metric-row">
             <div className="metric">
-              <div className="metric__label">Today</div>
+              <div className="metric__label">Left today</div>
               <div className="metric__value">{formatZar(limits.remaining_today_zar)}</div>
+              <LimitBar used={limits.used_today_zar} limit={limits.daily_limit_zar} label="Daily" />
               <p className="hint">
                 {formatZar(limits.used_today_zar)} of {formatZar(limits.daily_limit_zar)} used
+                {usedPercent(limits.used_today_zar, limits.daily_limit_zar)}
               </p>
             </div>
             <div className="metric">
-              <div className="metric__label">This month</div>
+              <div className="metric__label">Left this month</div>
               <div className="metric__value">{formatZar(limits.remaining_this_month_zar)}</div>
+              <LimitBar
+                used={limits.used_this_month_zar}
+                limit={limits.monthly_limit_zar}
+                label="Monthly"
+              />
               <p className="hint">
                 {formatZar(limits.used_this_month_zar)} of {formatZar(limits.monthly_limit_zar)} used
+                {usedPercent(limits.used_this_month_zar, limits.monthly_limit_zar)}
               </p>
             </div>
           </div>

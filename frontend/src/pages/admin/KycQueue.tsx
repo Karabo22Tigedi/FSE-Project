@@ -86,7 +86,7 @@ export function KycQueue() {
     <>
       <h1>Admin KYC</h1>
       <p className="page-lead">
-        {user ? `${user.full_name}. ` : null}
+        {user ? `Signed in as ${user.full_name}. ` : null}
         Review each application and approve or reject it, with a reason if you reject.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}

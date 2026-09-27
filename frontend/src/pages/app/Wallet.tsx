@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { api } from "../../api/client"
 import type { Wallet as WalletData } from "../../api/types"
-import { useAuth } from "../../auth/useAuth"
 import { errorDetail, formatRlusd, remittanceLabel } from "./format"
 import { Badge } from "./StatusTimeline"
 import {
@@ -29,7 +28,6 @@ function incomingLabel(status: string): string {
 }
 
 export function Wallet() {
-  const { user } = useAuth()
   const [wallet, setWallet] = useState<WalletData | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -60,10 +58,8 @@ export function Wallet() {
     <>
       <h1>Wallet</h1>
       <p className="page-lead">
-        {user ? `${user.full_name}. ` : null}
-        Spendable UCTUSD is what you can cash out right now. On-chain also counts anything
-        reserved for a cash-out that's still requested or approved — that reservation clears once
-        the cash-out completes and burns the UCTUSD.
+        This wallet holds money sent to you, in UCTUSD. Sending doesn't use it: you pay in rand
+        when you cash in a quote.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}
       {loading ? <p className="muted">Loading wallet…</p> : null}
@@ -80,23 +76,33 @@ export function Wallet() {
             <h2>Balances</h2>
             <div className="metric-row">
               <div className="metric">
-                <div className="metric__label">Spendable</div>
+                <div className="metric__label">Available to cash out</div>
                 <div className="metric__value">{formatRlusd(wallet.spendable_balance)}</div>
-                <p className="hint">spendable_balance / balance_rlusd</p>
-                <p className="mono hint">{wallet.balance_rlusd}</p>
               </div>
               <div className="metric">
-                <div className="metric__label">On-chain</div>
+                <div className="metric__label">Held on the ledger</div>
                 <div className="metric__value">{formatRlusd(wallet.on_chain_balance)}</div>
-                <p className="hint">on_chain_balance</p>
-                <p className="mono hint">{wallet.on_chain_balance}</p>
+                <p className="hint">Includes cash-outs still in progress</p>
               </div>
             </div>
-            <div className="action-row">
-              <Link className="pill" to="/app/cash-out">
-                Cash out
-              </Link>
-            </div>
+            {isZeroAmount(wallet.spendable_balance) && isZeroAmount(wallet.on_chain_balance) ? (
+              <>
+                <p className="empty-state wallet-empty">
+                  Nothing received yet. When someone sends you money, it appears here.
+                </p>
+                <div className="action-row">
+                  <Link className="pill" to="/app/send">
+                    New quote
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <div className="action-row">
+                <Link className="pill" to="/app/cash-out">
+                  Cash out
+                </Link>
+              </div>
+            )}
           </article>
 
           <article className="app-card stagger-in" style={staggerStyle(1)}>
@@ -108,9 +114,8 @@ export function Wallet() {
                 <p className="empty-state">Not provisioned yet.</p>
                 {isZeroAmount(wallet.spendable_balance) ? (
                   <p className="hint">
-                    Spendable balance is zero. An address and TrustLine are created when the
-                    first incoming remittance settles (a TrustLine is required before the
-                    wallet can hold UCTUSD).
+                    Your XRPL Testnet address is created when your first transfer arrives,
+                    together with the TrustLine that lets it hold UCTUSD.
                   </p>
                 ) : null}
               </>

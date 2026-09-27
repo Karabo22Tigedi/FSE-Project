@@ -401,6 +401,39 @@
   margin-top: 0.25rem;
 }
 
+.empty-state.wallet-empty {
+  margin-top: 1rem;
+}
+
+.limit-bar {
+  height: 0.5rem;
+  margin: 0.65rem 0 0.45rem;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.limit-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal-underline);
+  transition: width 0.6s ease;
+}
+
+.limit-bar__fill--high {
+  background: var(--status-warning-bg);
+}
+
+.limit-bar__fill--full {
+  background: var(--status-danger-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limit-bar__fill {
+    transition: none;
+  }
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;

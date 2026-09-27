@@ -100,7 +100,7 @@ export function Config() {
     <>
       <h1>Config</h1>
       <p className="page-lead">
-        {user ? `${user.full_name}. ` : null}
+        {user ? `Signed in as ${user.full_name}. ` : null}
         Adjust fee settings and daily/monthly sending limits for each KYC tier.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}

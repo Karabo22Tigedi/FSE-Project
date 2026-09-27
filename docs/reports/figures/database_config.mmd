@@ -1,0 +1,34 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "fontFamily": "Lato, Helvetica, Arial, sans-serif",
+  "fontSize": "14px",
+  "primaryColor": "#1f4e8c",
+  "primaryTextColor": "#ffffff",
+  "primaryBorderColor": "#163a6b",
+  "lineColor": "#1f3a5f",
+  "textColor": "#1f3a5f",
+  "attributeBackgroundColorOdd": "#ffffff",
+  "attributeBackgroundColorEven": "#eef4fb",
+  "tertiaryColor": "#ffffff"
+}, "themeCSS": ".row-rect-even path, .row-rect-even rect { fill: #eef4fb !important; } .row-rect-odd path, .row-rect-odd rect { fill: #ffffff !important; } * { font-family: Lato, Helvetica, Arial, sans-serif !important; } .relationshipLabel, .relationshipLabelBox + text, .er.relationshipLabel { fill: #1f3a5f !important; } .edgeLabel, .edgeLabel p, .edgeLabel span { color: #1f3a5f !important; } .attributeBoxOdd, .attributeBoxEven { stroke: #b8cde6 !important; } .row-rect-odd path, .row-rect-even path { stroke: #b8cde6 !important; } .label.attribute-type, .label.attribute-name, .label.attribute-keys, .label.attribute-comment { color: #1f3a5f !important; } .label.attribute-type span, .label.attribute-name span, .label.attribute-keys span, .label.attribute-comment span, .label.attribute-type p, .label.attribute-name p, .label.attribute-keys p, .label.attribute-comment p { color: #1f3a5f !important; }"}}%%
+erDiagram
+    direction TB
+    PLATFORM_WALLET {
+        string id PK
+        string classic_address UK "treasury account"
+        string secret "Fernet-encrypted"
+        string network "testnet"
+        bool trustline_established
+    }
+    FEE_CONFIG {
+        string id PK
+        decimal fixed_fee_zar "25.00"
+        decimal percentage_fee "0.0100"
+        decimal fx_margin_percentage "0.0200"
+        decimal cash_out_fee_percentage "0.0150"
+    }
+    LIMIT_TIERS {
+        string id PK
+        enum tier_key UK "unverified | verified"
+        decimal daily_limit_zar
+        decimal monthly_limit_zar
+    }

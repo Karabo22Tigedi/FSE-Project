@@ -15,7 +15,7 @@ Compiled PDFs (run `powershell -File docs/reports/compile.ps1`):
 
 LaTeX sources live next to those PDFs. Kerry’s old `ASSUMPTIONS_AND_LIMITATIONS.md` listed sketch bugs as if they were current; it is now a pointer to the spec.
 
-## What we changed versus the sketch
+## What has changed versus the sketch
 
 - **Alembic** `0001_initial` + `0002_quote_session` + `0003_cash_out_burn` at runtime (startup runs `upgrade head`). Tests still `create_all` on in-memory SQLite.
 - **Quotes:** 15-minute TTL, `POST /remittances/{id}/cancel`, tracking ref `MG` + 10 digits, `GET /remittances/track/{ref}`. Cancelled and expired quotes **do not** count toward limits. Sends whose fees consume the principal return **422**.
@@ -115,7 +115,7 @@ npm run dev
 
 Open http://localhost:5173. Point `VITE_API_URL` at the API if it is not `http://127.0.0.1:8000`.
 
-Optional public URL (WhatsApp): `render.yaml` + `deploy/` host the UI and API on one Render link. Not required for the course. Delete those two and the Render services if the lecturer does not want hosting.
+Optional public URL (WhatsApp): `render.yaml` + `deploy/` host the UI and API on one Render link. Not required for the course. 
 
 ## Performance numbers
 

@@ -1,0 +1,559 @@
+% ============================================================
+%  ECO5040W Group 3 — Business and Technical Specification
+%  Upload the figures folder next to this file in Overleaf.
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- Colours (blue theme to match the diagrams) ----------
+\definecolor{navy}{HTML}{1F4E8C}
+\definecolor{ink}{HTML}{1F3A5F}
+\definecolor{headbg}{HTML}{DCE8F6}
+\definecolor{rowbg}{HTML}{F4F8FC}
+
+% ---------- Layout ----------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlist{itemsep=0.2em, topsep=0.3em}
+\renewcommand{\arraystretch}{1.3}
+
+\titleformat{\section}{\Large\bfseries\color{navy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{ink}}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.6em}{0.6em}
+\titlespacing*{\subsection}{0pt}{1.1em}{0.4em}
+
+\captionsetup{font=small, labelfont={bf,color=ink}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{ink} ECO5040W Group 3}
+\fancyhead[R]{\small\color{ink} Business and Technical Specification}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------- Code / formula blocks ----------
+\lstset{basicstyle=\ttfamily\small, columns=fullflexible, frame=single,
+        rulecolor=\color{headbg}, backgroundcolor=\color{rowbg},
+        xleftmargin=1em, xrightmargin=1em, aboveskip=0.8em, belowskip=0.8em}
+
+% ---------- Helpers ----------
+% Inline code, e.g. \code{POST /auth/register}. Write \_ for underscores.
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% Figure that falls back to a placeholder box if the file is missing.
+% Usage: \fig{figures/architecture.pdf}{Caption text}{fig:arch}{0.8}
+\newcommand{\fig}[4]{%
+  \begin{figure}[H]\centering
+    \IfFileExists{#1}{\includegraphics[width=#4\linewidth]{#1}}%
+      {\fcolorbox{headbg}{rowbg}{\parbox[c][6cm][c]{#4\linewidth}{\centering\color{ink}Upload \texttt{\detokenize{#1}}}}}
+    \caption{#2}\label{#3}
+  \end{figure}}
+
+% Functional-requirement table: ID | Requirement | Implemented in
+% Usage:
+%   \begin{frtable}
+%   FR-01 & Requirement text & Implementation text \\
+%   \end{frtable}
+\newenvironment{frtable}{%
+  \rowcolors{2}{white}{rowbg}
+  \begin{longtable}{@{}>{\bfseries}l >{\RaggedRight\arraybackslash}p{5.5cm} >{\RaggedRight\arraybackslash}p{8.4cm}@{}}
+  \toprule
+  \rowcolor{headbg}\textbf{ID} & \textbf{Requirement} & \textbf{Implemented in} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot}
+ {\end{longtable}}
+
+% Note under a table
+\newcommand{\tablenote}[1]{{\small\color{ink}\itshape #1\par}}
+
+% ============================================================
+\begin{document}
+
+% ---------- Title page ----------
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  \IfFileExists{figures/baobab_logo.pdf}{\includegraphics[width=4cm]{figures/baobab_logo.pdf}\par\vspace{1em}}{}
+  {\Huge\bfseries\color{navy} Baobab\par}
+  \vspace{0.4em}
+  {\Large\itshape\color{ink} Rooted here. Reaching there.\par}
+  \vspace{2em}
+  {\LARGE Business and Technical Specification\par}
+  \vspace{0.6em}
+  {\large ECO5040W Project, Group 3\par}
+  \vspace{3em}
+  {\large Karabo Tigedi \quad Kerry-Lynn Whyte \quad Nikola Milosavljevic\\[0.3em]
+          Annita Ngoma \quad Lilitha Mzamo\par}
+  \vfill
+  {\large University of Cape Town\\ \today\par}
+\end{titlepage}
+
+\pagenumbering{gobble}
+\tableofcontents
+\thispagestyle{empty}
+\newpage
+\pagenumbering{arabic}
+
+% ============================================================
+\section{Business Problem}\label{sec:problem}
+
+Sending money from South Africa to neighbouring countries remains expensive, particularly on the corridor to Zimbabwe, one of the country's largest remittance routes. The World Bank's Remittance Prices Worldwide database records what major providers charge for its USD~200 benchmark transfer, combining the transfer fee and the exchange-rate margin into a single total cost. In data collected in August 2025, that cost ranged from 5.15\% through WorldRemit's online service to 31.81\% through Western Union's agent network, with MoneyGram at 15.43\% and Mukuru at 10.28\% (World Bank, 2025). The corridor average was 12.49\%, more than four times the Sustainable Development Goal target of 3\%, and even the cheapest option exceeded the goal's separate aim of eliminating corridors that cost more than 5\% (United Nations, 2015).
+
+These costs fall on the migrant workers who rely on this corridor and others like it. About R19 billion was sent formally from South Africa to other Southern African Development Community (SADC) countries in 2024, nearly 90\% of it to Lesotho, Zimbabwe, Mozambique and Malawi (FinMark Trust, 2024). Most of that money moves in small, regular amounts set aside from wages, which is precisely where fixed fees do the most damage.
+
+Stablecoin platforms provide a way to circumvent this. Because a dollar-pegged token such as USDC or USDT can move directly between accounts, the chain of correspondent banks is removed, and value can be transferred almost instantly and at little cost. Many of these platforms, however, are designed primarily for people who already use cryptocurrency, and they leave both ends of the transfer to the user. The sender must first buy the stablecoin with rand before sending it, and the recipient must hold it as a crypto asset and then sell it to obtain cash. For a migrant worker and a family at home who simply want the money to arrive, each of these steps adds cost, effort and room for error. Stablecoins make the transfer itself cheap; on their own, however, they do not amount to a remittance service.
+
+The proposed platform is built to turn stablecoin settlement into a complete remittance service. Senders pay in rand, just as they would with MoneyGram, Western Union or Mukuru, while the transfer itself settles on the XRP Ledger in RLUSD, giving the transfer the cost and speed of a stablecoin. Neither party has to handle the stablecoin directly: the platform converts the rand on the sender's behalf, and a custodial wallet, in which the platform holds the private keys on the recipient's behalf, lets the recipient keep the funds in RLUSD or cash out to US dollars or local currency. In a production system, that cash-out would rely on local payout partners able to convert RLUSD into local currency. In the prototype, this step is simulated, and RLUSD is represented by UCTUSD, a course-issued test token on the XRP Ledger Testnet that is treated as being worth one US dollar.
+
+% ============================================================
+\section{User Stories}\label{sec:stories}
+
+\subsection{Sender}
+As a migrant worker in South Africa, I want to send part of my wages to my family in Zimbabwe at a lower cost and have it arrive the same day, so that more of my money reaches them and they are not left waiting days for money they depend on.
+
+\subsection{Receiver}
+As a family member in Zimbabwe who depends on money sent from South Africa, I want to receive it as dollar value I can keep or cash out, without having to manage or sell cryptocurrency myself, so that a cheaper transfer does not come at the cost of more difficulty for me.
+
+% ============================================================
+\section{Competitor Comparison}\label{sec:competitors}
+
+The comparison focuses on four conventional money transfer operators on the South Africa to Zimbabwe corridor: the global incumbents MoneyGram and Western Union, Mukuru, whose business is built around the migrant-remittance pattern described in Section~\ref{sec:problem}, and WorldRemit, the cheapest digital provider in the World Bank's data. VALR Pay is also looked at as a stablecoin-native provider, and Wise as a low-cost digital benchmark. While not extensive, it paints a picture of the current market landscape.
+
+\subsection{Conventional money transfer operators}
+All four operators are compared using the World Bank's Remittance Prices Worldwide data collected between 15 and 26 August 2025, which provides independently collected, directly comparable pricing from a single non-commercial source. Each figure is the total cost of sending USD~200, the World Bank's benchmark amount.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}>{\bfseries}p{2.3cm} *{4}{>{\RaggedRight\arraybackslash}p{3.1cm}}@{}}
+\toprule
+\rowcolor{headbg} & \textbf{MoneyGram} & \textbf{Western Union} & \textbf{Mukuru} & \textbf{WorldRemit} \\
+\midrule
+Channel        & Agent; cash pickup & Agent; cash pickup & Call centre; cash pickup & Online; mobile wallet \\
+Total cost     & 15.43\% & 31.81\% & 10.28\% & 5.15\% \\
+Cost structure & Flat fee plus 0.83\% exchange-rate margin
+               & Flat fee; exchange rate marginally favourable
+               & Flat fee plus 0.35\% exchange-rate margin
+               & Flat fee plus 3.15\% exchange-rate margin \\
+Speed          & Next day & Two days & Same day & Under one hour \\
+Pain points    & Cost roughly five times the SDG target; slower than digital providers
+               & Highest cost of the four; price varies widely by channel (15.85\% via Absa online banking)
+               & Twice the cost of the cheapest digital providers; customers report limited collection points, strict name-matching at payout and slow dispute resolution
+               & Lowest cost, but available only online by bank transfer or card, excluding senders without either \\
+\bottomrule
+\end{tabular}
+\caption{Total cost of sending USD~200, South Africa to Zimbabwe. Source: World Bank (2025), Remittance Prices Worldwide, Q3 2025. Total cost combines the fee and the exchange-rate margin as a percentage of the amount sent; speeds are as recorded in the same database.}
+\label{tab:mto}
+\end{table}
+
+The comparison reveals a market in which price bears very little relation to the rendered service. Western Union's agent channel charges around six times as much as WorldRemit yet takes two days to deliver, while money sent through WorldRemit arrives in under an hour. On the World Bank's USD~200 benchmark, that gap amounts to roughly USD~53 per transfer, a considerable sum for a worker sending money home every month. The digital providers have brought costs much closer to the target, but even the cheapest remains above 3\%, leaving room for a model that can reduce costs further.
+
+\subsection{VALR Pay}
+VALR Pay is a direct stablecoin competitor on this corridor, and it addresses the same problem as the proposed platform. VALR, a South African crypto-asset exchange with over 1.8 million users (VALR, n.d.-c), frames the corridor in the same terms as this analysis: it identifies Western Union and Mukuru as the familiar options for sending money to Zimbabwe, and argues that their fees and exchange rates make them costly for people who send regularly, while many recipients lack the bank accounts that cheaper transfers require (VALR, 2025a). Its answer is to move the money as a stablecoin such as USDC or USDT, instantly and without a transfer fee. In doing so, VALR shows that stablecoin settlement can remove the cost of the transfer itself. What it does not remove is the cost of converting into and out of the stablecoin, and that is where it falls short of a complete remittance service.
+
+\begin{itemize}
+  \item \textbf{Access:} both sender and recipient need a VALR account, and opening one requires identity verification, including proof of a residential address. Payments to accounts that are not fully verified are reversed within 72 hours.
+  \item \textbf{Pricing:} the transfer itself is free, but the steps on either side are not. To send dollar value rather than rand, the sender must first convert rand into a stablecoin, for which VALR's Simple Buy service charges a conversion fee of 1.6\%. A recipient who moves the stablecoin off the platform pays a network-dependent withdrawal fee, which VALR quotes at the time of withdrawal and which may exceed the network's actual charge. The cost of then converting the stablecoin into cash is set by whichever exchange or agent the recipient uses, and is not known in advance.
+  \item \textbf{Speed:} instant between VALR accounts, since the transfer is recorded on VALR's own platform rather than passed through correspondent banks. The time taken to reach cash depends on the steps the recipient takes afterwards.
+  \item \textbf{Pain points:} VALR's fiat services are built around the rand. Its help centre notes that deposits in other currencies are credited as a stablecoin, with ZAR the only currency it credits directly (VALR, n.d.-a), and no option was found to withdraw directly to a Zimbabwean bank account or mobile wallet. A recipient in Zimbabwe who needs cash must therefore hold the stablecoin, move it to another platform and sell it there, taking on the associated fees and risks.
+\end{itemize}
+
+VALR's stablecoin infrastructure is also beginning to reach customers through the conventional operators themselves. In November 2025, VALR and Mukuru launched a USDC wallet in South Africa, offered through Mukuru's WhatsApp platform, which allows Mukuru's customers to buy, hold and sell USDC. The service is presented as a way to save in dollars rather than as a cross-border transfer, but it shows a major operator on this corridor adopting the same stablecoin infrastructure that underpins VALR Pay.
+
+\subsection{Wise}
+Wise is a significant new entrant into South Africa's outbound market. The company serves over 18.9 million customers worldwide and converts money at the mid-market exchange rate, charging a separately disclosed fee rather than building its margin into the rate (Wise, 2025, 2026). In December 2025 it received conditional approval from the South African Reserve Bank to operate as a Category 2 Authorised Dealer in Foreign Exchange with Limited Authority, its first regulatory approval in Africa, and in April 2026 its infrastructure began powering international transfers for Capitec, a bank with more than 25 million customers. That combination gives Wise almost immediate reach into a large share of South Africa's banked population. On this corridor, however, its presence is limited. Wise does not appear among the providers surveyed on the South Africa to Zimbabwe route (World Bank, 2025), and its South African service runs through bank accounts, whereas several of the corridor's established providers are built around cash collection. Its licence and Capitec's customer base give Wise the infrastructure to extend its model to regional corridors, and if it did so on this route, its pricing would make it a direct competitor on cost. Wise therefore sets the standard for price transparency that any competitor on this corridor must meet, but it does not yet serve the cash-based remittances that migrant workers rely on.
+
+\subsection{Summary}
+Taken together, the comparison shows a market split three ways. The global incumbents offer wide cash networks at 15\% to 32\% of the amount sent. Digital providers such as WorldRemit have brought costs down to around 5\%, with delivery in under an hour, yet none reaches the 3\% target. VALR Pay removes the transfer fee but leaves buying, holding and selling the stablecoin to its users. The platform competes on this ground. It delivers a complete service from rand to cash, and the recipient can hold the funds as dollar value rather than cash out immediately. At its default fees (R25 plus 1\%, a 2\% exchange-rate margin and a 1.5\% cash-out fee) the total cost is about 5.2\% at the R3,000 daily cap and higher on smaller amounts. That is close to WorldRemit but not below it, and not under the 3\% target. The fees are configurable by an administrator, so they can be lowered in future without a code change.
+
+% ============================================================
+\section{User Journey}\label{sec:journey}
+The journey followed by the user can be seen in the sequence diagrams below.
+
+\subsection{Onboarding}
+\fig{figures/journey_onboarding.png}{Register, KYC, beneficiary, quote and cancel.}{fig:onboarding}{0.9}
+
+\subsection{Cash-in and settlement}
+\fig{figures/journey_settlement.png}{Cash-in confirmation and XRPL settlement.}{fig:settlement}{0.9}
+
+\subsection{Wallet and cash-out}
+\fig{figures/journey_cashout.png}{Recipient wallet, cash-out and tracking.}{fig:cashout}{0.9}
+
+% ============================================================
+\section{Functional Requirements}\label{sec:fr}
+
+\subsection{Registration and authentication}
+\begin{frtable}
+FR-01  & Register an account with personal details (full name, email address, mobile number and a password).
+       & \code{POST /auth/register}; UI \code{/register}. Mobile numbers must be 8--15 digits with an optional leading +, in line with international numbering; passwords are bcrypt-hashed. \\
+FR-02  & Log in with registered credentials.
+       & \code{POST /auth/login} returns a bearer token (only its SHA-256 hash is stored) and logs the user in. \\
+FR-02a & Log out, terminating the session.
+       & \code{POST /auth/logout} sets \code{revoked\_at} on the session and logs the user out. \\
+FR-03  & Email address and mobile number are unique across accounts.
+       & Unique constraints on \code{users.email} and \code{users.mobile\_number}; a duplicate registration returns 409. \\
+FR-04  & Distinguish sender, recipient and administrator roles.
+       & Partial, by design. Stored roles are \code{customer} and \code{admin}; sender and recipient are what a customer does on a given transfer (Section~\ref{sec:assumptions}). Admins come only from \code{scripts/create\_admin.py} or the \code{ADMIN\_EMAIL}/\code{ADMIN\_PASSWORD} start-up setting. \\
+FR-04a & View and update basic profile information.
+       & \code{GET}/\code{PATCH /users/me}; UI \code{/app/profile}. \\
+\end{frtable}
+
+\subsection{KYC}
+\begin{frtable}
+FR-05  & Collect full name, date of birth, nationality, identification number, residential address, mobile number, email address and source of funds.
+       & \code{POST /kyc} stores all eight fields. The ID number (6--20 characters) is encrypted with the KYC Fernet key. \\
+FR-06  & Submit a completed KYC application for review.
+       & \code{POST /kyc} overwrites a pending or rejected application and returns 409 once it is approved. The screen locks the form while it is pending. \\
+FR-07  & Administrator can view a submitted application.
+       & \code{GET /kyc}, \code{GET /kyc/\{id\}}; UI \code{/admin/kyc}. \\
+FR-08  & Administrator can approve or reject an application.
+       & \code{POST /kyc/\{id\}/approve} or \code{/reject}. A missing or blank rejection reason returns 422; the UI asks for one and confirms the decision in a dialog naming the applicant. \\
+FR-08a & User can view their own KYC status.
+       & \code{GET /kyc/me/status}, \code{GET /kyc/me}; shown on the sender home screen. \\
+FR-09  & No remittance without approved KYC.
+       & \code{POST /remittances} returns 403 without approved KYC; the send screen shows ``KYC not approved'' with a line for pending, rejected or not submitted. \\
+FR-09a & No cash-out without approved KYC.
+       & \code{POST /cash-outs} requires approved KYC. A recipient can still receive and hold UCTUSD without it. \\
+\end{frtable}
+\tablenote{The assumption attached to FR-09a is adopted as stated: senders need approved KYC before sending and recipients before cashing out, but receiving and holding needs none.}
+
+\subsection{Beneficiary management}
+\begin{frtable}
+FR-10  & Approved sender adds a beneficiary with full name, mobile number or email, country, payout currency and relationship.
+       & \code{POST /beneficiaries}, approved senders only; all five fields stored. UI \code{/app/beneficiaries}. \code{payout\_currency} is stored and shown, but quotes do not use it. \\
+FR-11  & Require at least a mobile number or an email address.
+       & Request validation rejects a beneficiary with neither (422). \\
+FR-12  & Sender can list their beneficiaries.
+       & \code{GET /beneficiaries}, each with a Linked or Unlinked badge in the UI. \\
+FR-12a & Link a beneficiary to a recipient account by matching mobile number or email.
+       & Auto-match when the beneficiary is added, and again whenever a new account registers (\code{services/beneficiary\_linking.py}). Mobile or email is enough; the first matching account wins. Editing a profile does not relink. Email matching is case-insensitive. \\
+FR-12b & Provision a custodial wallet only once the beneficiary is linked to a registered recipient account.
+       & A wallet row is created when the beneficiary is linked; the recipient's custodial Testnet account is created at the first settlement, and only for the linked user. \\
+FR-12c & If no account matches, leave the beneficiary unlinked; no wallet and no settlement until a matching account registers.
+       & The record stays unlinked. If cash-in is confirmed anyway, the worker refuses to settle (``Beneficiary is not linked to a registered recipient account''), creates no wallet, credits nothing, and marks the transfer \code{settlement\_failed}; an administrator retries once the recipient registers and is linked. \\
+\end{frtable}
+
+\subsection{Quotes, fees and limits}
+\begin{frtable}
+FR-13  & Determine the USD/ZAR rate when the transaction is created (public API, mock or rate table).
+       & open.er-api.com at quote creation, cached for five minutes, with a \code{.env} fallback rate (Section~\ref{sec:fx}). The rate used is stored on the quote. \\
+FR-14  & Quote shows ZAR amount, rate, transaction fee, FX margin, RLUSD amount, cash-out fee and estimated payout.
+       & \code{POST /remittances} returns \code{zar\_amount}, \code{exchange\_rate}, \code{transaction\_fee\_zar}, \code{fx\_margin\_percentage}, \code{rlusd\_amount}, \code{estimated\_cash\_out\_fee} and \code{estimated\_recipient\_payout}, plus \code{tracking\_ref} and \code{expires\_at}. The estimated payout is in UCTUSD, not rand, and is an estimate. \\
+FR-15  & Fees use a configurable fixed fee, percentage fee, FX margin and cash-out fee.
+       & One \code{FeeConfig} row (Section~\ref{sec:fees}). \\
+FR-15a & Administrator can view and update the fee parameters.
+       & \code{GET}/\code{PUT /admin/fee-config}; UI \code{/admin/config}. \\
+FR-16  & Check the amount against daily and monthly limits before proceeding.
+       & Checked on the gross rand amount before the quote is inserted; refused only when usage plus the amount is strictly over the cap. Cancelled and expired quotes do not count towards the limit. Two simultaneous quotes are not locked, so both can pass (Section~\ref{sec:limits}). \\
+FR-16a & Sender can view limits and remaining allowance.
+       & \code{GET /limits/me} returns limits, usage and remaining amounts for today and this month. \\
+FR-16b & Administrator can view and update limit tiers.
+       & \code{GET /admin/limit-tiers}, \code{PUT /admin/limit-tiers/\{tier\_key\}}; UI \code{/admin/config}. \\
+FR-17  & Reject a request that would exceed a limit, and say why.
+       & HTTP 422 naming the limit, e.g.\ ``This remittance would exceed your daily limit of \ldots\ ZAR''. \\
+\end{frtable}
+
+\subsection{Simulated cash-in}
+\begin{frtable}
+FR-18 & Sender initiates a simulated ZAR payment by a supported method.
+      & \code{POST /remittances/\{id\}/cash-in} with \code{agent\_cash}, \code{bank\_transfer} or \code{card}; only for an unexpired, uncancelled quote. \\
+FR-19 & Administrator confirms the payment.
+      & \code{POST /remittances/\{id\}/confirm-cash-in}; UI \code{/admin/cash-in}. There is no mock payment-provider route; the administrator is the confirming party. \\
+FR-20 & No settlement until cash-in is confirmed.
+      & Settlement is enqueued only inside confirm-cash-in; no Payment is submitted before it. \\
+\end{frtable}
+
+\subsection{Queue and settlement}
+\begin{frtable}
+FR-21 & Queue a settlement message once cash-in is confirmed.
+      & Confirm-cash-in writes a \code{SettlementMessage} row (outbox) and adds it to the Redis Stream \code{settlement\_messages}. \\
+FR-22 & A worker consumes messages and submits the transfer to XRPL Testnet.
+      & \code{scripts/run\_settlement\_worker.py} or \code{POST /admin/settlement/run} reads the stream as a consumer group and submits a UCTUSD Payment with xrpl-py. Each call drains the stream once; the worker does not stay running between calls. \\
+FR-23 & Record each outcome, with the transaction hash on success.
+      & Hash or failure reason stored on the remittance and the message; \code{GET /admin/settlement}; UI \code{/admin/settlement}. \\
+FR-24 & A failed transaction does not credit the recipient.
+      & Status becomes \code{settlement\_failed} with no credit; covered by \code{tests/test\_settlement.py}. \\
+FR-25 & A duplicate message cannot credit twice.
+      & One message per remittance (unique constraint); if a hash is already stored the worker marks the job complete without paying or crediting; retrying a completed message returns 409. Before submitting, the worker looks up a validated Payment whose memo is this remittance id and adopts that hash instead of paying again. Two overlapping worker runs can still both miss the lookup and pay twice. \\
+FR-26 & Update the wallet balance once settlement is confirmed on-ledger.
+      & The worker waits for ledger validation, then stores the hash, credits the balance and sets \code{settled} in one database commit. If the process dies before that commit, the next run adopts the payment by its memo and then credits the wallet. \\
+\end{frtable}
+
+\subsection{Recipient wallet and sender history}
+\begin{frtable}
+FR-27  & Each recipient has a custodial web wallet.
+       & A custodial Testnet account per recipient, secret encrypted with its own Fernet key; \code{GET /wallet/me}; UI \code{/app/wallet}. \\
+FR-28  & Wallet shows balance, incoming transfers, cash-outs, status, date and transaction hash.
+       & Spendable and on-chain balances; incoming transfers with amount, status, dates and hash; cash-outs with amount, currency, status, dates and burn hash. The on-chain figure is spendable plus requested or approved cash-out amounts; it is not a live read from the ledger. \\
+FR-28a & Sender can view status and history of sent remittances.
+       & \code{GET /remittances/me} lists amount, status and tracking reference on \code{/app/history}. The quote breakdown, status timeline, hash and a scannable QR code are on \code{/app/track/\{ref\}} (\code{GET /remittances/track/\{ref\}}) and the quote page. \\
+\end{frtable}
+
+\subsection{Simulated cash-out}
+\begin{frtable}
+FR-29 & Establish a TrustLine to the issuer for any wallet holding the token.
+      & TrustSet for the platform treasury (\code{scripts/setup\_platform\_wallet.py} or \code{POST /admin/platform-wallet/trustline}) and for each recipient account before its first payment. \\
+FR-30 & Recipient requests a cash-out to USD or local fiat.
+      & \code{POST /cash-outs} to USD or ZAR; the amount is reserved from the spendable balance at once. \\
+FR-31 & Payout uses the applicable rate, less the cash-out fee.
+      & Fee taken from the UCTUSD amount; USD pays out 1:1, ZAR at the live or fallback USD/ZAR rate without the FX margin. \\
+FR-32 & Track cash-outs as requested, approved, completed or failed.
+      & \code{requested} $\rightarrow$ \code{approved} $\rightarrow$ \code{completed}, or \code{failed} from requested or approved. Complete burns the gross reserved UCTUSD by paying the issuer; the fiat payout is the net after the fee and no bank payment is made. Fail refunds the gross amount to the recipient's wallet. \\
+\end{frtable}
+
+\subsection{Administration}
+\begin{frtable}
+FR-33 & Admin interface for KYC applications.
+      & UI \code{/admin/kyc} (FR-07, FR-08). \\
+FR-34 & Admin interface for confirming cash-in.
+      & UI \code{/admin/cash-in} (FR-19). \\
+FR-35 & Admin interface for actioning cash-outs.
+      & UI \code{/admin/cash-out}: \code{POST /cash-outs/\{id\}/approve}, \code{/complete}, \code{/fail}. Fail refunds the cash-out user (the recipient), not the remittance sender. Each action is confirmed in a dialog. \\
+\end{frtable}
+\tablenote{FR-15a and FR-16b are also administration functions; they are listed with the fees and limits they configure. Beyond the requirements, the system adds a 15-minute quote expiry with cancel\\ (\code{POST /remittances/\{id\}/cancel}), MG tracking references, admin settlement retry, and a platform-wallet screen reporting treasury TrustLine and liquidity.}
+
+% ============================================================
+\section{Fee Model}\label{sec:fees}
+
+Several fees are added to transactions. These include a transaction fee when the sender pays in rand, a margin on the exchange rate, and a fee when the recipient cashes out. The amounts for these fees are stored in a single settings record, \code{FeeConfig}. This enables an administrator to change them on the Config screen, and the next quote uses the new values, with no code change or restart. Quotes already issued are unaffected, because each quote stores the fee and rate it was priced at.
+
+The baseline system starts with a fixed fee of R25.00, a percentage fee of 1\% of the amount sent, an FX margin of 2\%, and a cash-out fee of 1.5\%. Percentages are stored as fractions, so 1\% is stored as 0.0100.
+
+The transaction fee is the fixed fee plus a percentage of the amount sent (\code{zar\_amount}), and it is deducted from the rand amount first. The remainder (\code{net\_zar}) is then converted to dollars at the effective rate (the mid-market rate, marked up by the FX margin). The resulting amount (\code{rlusd}) is the amount of UCTUSD the recipient receives:
+\begin{align*}
+\text{transaction\_fee} &= \text{fixed\_fee} + \text{zar\_amount} \times \text{percentage\_fee}\\
+\text{effective\_rate}  &= \text{mid\_market} \times (1 + \text{fx\_margin})\\
+\text{net\_zar}         &= \text{zar\_amount} - \text{transaction\_fee}\\
+\text{rlusd}            &= \text{net\_zar} \,/\, \text{effective\_rate}
+\end{align*}
+
+Since the margin increases the rand amount needed for each dollar, the recipient receives fewer dollars than the mid-market rate would provide. The difference between the mid-market and effective rate is the platform's exchange-rate income, and this margin is shown in the quote. The token is treated as being worth exactly one US dollar. The rand transaction fee and the fiat payout are rounded to two decimal places; the token amounts and the cash-out fee are rounded to six. Halves are rounded up. If the fee is as large as the amount sent, the quote is refused with an HTTP 422 error, since no money is left to convert.
+
+The cash-out fee on the quote is only an estimate, as the recipient may cash out in part, at a later time or in a different currency. When they do, the cash-out fee is subtracted from the token amount using the cash-out fee set at that time. If a USD cash-out is selected, one dollar per token is paid. If a ZAR cash-out is selected, a conversion is performed at the current USD/ZAR rate, or the fallback rate, with no FX margin added. Table~\ref{tab:worked} gives a worked example.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\rowcolor{headbg}\textbf{Step (R1,000 at the 18.50 fallback rate)} & \textbf{Value} \\
+\midrule
+Transaction fee            & R35.00 \\
+Effective rate             & 18.87 \\
+Net rand                   & R965.00 \\
+UCTUSD to recipient        & 51.139375 \\
+Estimated cash-out fee     & 0.767091 \\
+Estimated payout (UCTUSD)  & 50.372284 \\
+\bottomrule
+\end{tabular}
+\caption{Worked quote at the default fees.}
+\label{tab:worked}
+\end{table}
+
+% ============================================================
+\section{Exchange-Rate Calculation}\label{sec:fx}
+
+The platform uses a public API to retrieve exchange rates, with a configured rate as the backup.
+
+When a quote is created, the system requests the latest US dollar rates from a free public service (open.er-api.com) and retrieves the rand rate from the reply. This rate is retained for five minutes and is reused for every quote made in that period, so that a burst of users does not flood the free service with requests. The first quote after each five-minute period ends fetches a new rate.
+
+If the exchange-rate request fails, for reasons such as a timeout, an error response or a reply with no rand rate, the system uses a fixed backup rate (\code{USD\_ZAR\_RATE} = 18.50), which is configured in the settings file, and keeps it for five minutes before trying the live service again.
+
+The backup rate can only be changed in the settings file, not on the admin screens, and the server must be restarted for a change to take effect. The rate used, with the FX margin applied, is stored on each quote, so the sender sees the rate they were actually charged.
+
+The automated tests never contact the live service; they substitute a fixed or simulated rate so that results are reproducible.
+
+% ============================================================
+\section{Remittance Limits}\label{sec:limits}
+
+Remittance limits depend on whether the sender's KYC is verified or unverified:
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\rowcolor{headbg}\textbf{Tier} & \textbf{Daily limit} & \textbf{Monthly limit} \\
+\midrule
+Unverified & R0     & R0 \\
+Verified   & R3,000 & R25,000 \\
+\bottomrule
+\end{tabular}
+\caption{Default limit tiers.}
+\label{tab:tiers}
+\end{table}
+
+Administrators may change these limits on the Config screen. Unverified senders are refused earlier, with a 403 for missing KYC, so they never reach the R0 check; R0 is the configured tier shown on \code{GET /limits/me}.
+
+Usage sums the sender's gross rand amount since the start of the UTC day or calendar month, with two exclusions:
+\begin{enumerate}
+  \item cancelled requests never count;
+  \item \code{quoted} rows whose \code{expires\_at} is already in the past never count.
+\end{enumerate}
+
+A quote is refused only when usage plus the new amount is strictly over the cap, so a send that lands exactly on the cap is allowed. Everything else counts towards usage, including unexpired quotes and every status from cash-in onwards, including \code{settlement\_failed}. This is because a failed on-chain payment still follows a confirmed cash-in, so the sender's rand was received and the amount stays counted. An administrator can retry the settlement, but nothing releases that amount early; it stops counting only when the day or month ends.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}>{\ttfamily}l l l@{}}
+\toprule
+\rowcolor{headbg}\textbf{Status} & \textbf{How it gets there} & \textbf{Counts to limit?} \\
+\midrule
+quoted               & \code{POST /remittances}                          & Yes, until expiry \\
+cancelled            & Sender cancels while still unexpired              & No \\
+quoted, after expiry & Clock runs out; cash-in returns 409               & No \\
+cash\_in\_pending    & Sender cash-in                                    & Yes \\
+cash\_in\_confirmed  & Admin confirms                                    & Yes \\
+settlement\_queued   & Enqueued after confirm                            & Yes \\
+settled              & Worker Payment and credit                         & Yes \\
+settlement\_failed   & Worker error; no credit                           & Yes \\
+\bottomrule
+\end{tabular}
+\caption{Remittance statuses on one evolving row.}
+\label{tab:statuses}
+\end{table}
+
+% ============================================================
+\section{Architecture}\label{sec:architecture}
+\fig{figures/architecture.pdf}{System architecture.}{fig:arch}{0.75}
+
+Users reach one React web app, which calls the FastAPI platform API with a bearer token. The API reads the live USD/ZAR rate, stores all state in SQLite, and on a confirmed cash-in adds a message to a Redis stream. The settlement worker reads that stream and pays UCTUSD from the platform treasury to the recipient's custodial Testnet account, then records the hash and credits the balance in one commit. The prototype uses both wallet options in the brief: a real Testnet account per linked recipient, and an internal spendable balance. The on-chain figure shown in the wallet is not a live ledger read.
+
+% ============================================================
+\section{Cash-in Flow}\label{sec:cashin}
+
+Cash-in starts from a quote that is still quoted, not cancelled, and not past its expiry. The sender posts one method: agent cash, bank transfer or card. The remittance stores that label and the time, and moves to cash-in pending. The method is not sent to a bank, a card acquirer or an agent. No settlement message is created at this step, and no XRP Ledger Payment is submitted.
+
+Only an administrator can confirm the cash-in, and only from cash-in pending. Confirmation records who confirmed it and when. It is the stand-in for a payment service saying the rand was received. Settlement is enqueued only inside that confirmation. The remittance then becomes settlement queued. Confirming does not itself submit the Payment; the worker does that later, when it reads the queue.
+
+From cash-in pending onward the rand amount keeps counting toward the sender's daily and monthly limits, including if settlement later fails. A cancelled quote cannot be cashed in. An expired quote cannot be cashed in, and cash-in on it returns 409.
+
+% ============================================================
+\section{RLUSD Settlement Flow}\label{sec:settlement}
+
+The brief calls this the RLUSD settlement flow. The token the worker actually pays is UCTUSD, issued by the configured Testnet account. Quote and wallet fields are still named with \code{rlusd}; that name is the amount. The ledger payment uses the configured UCTUSD currency code.
+
+Confirming cash-in inserts one settlement message per remittance and publishes its identifier on the Redis stream \code{settlement\_messages}. If that row already exists but the stream entry was never stored, the same row is published again, so a Redis failure after the database commit does not leave the remittance stranded. The worker reads its own unacknowledged entries, then idle entries waiting on the pending list, then new entries. It acknowledges an entry only after the message is completed or failed. A crash before that leaves the entry to be picked up again.
+
+The worker will not pay unless the beneficiary is linked to a registered user, the platform wallet has a TrustLine to the UCTUSD issuer, and the treasury holds enough UCTUSD. It creates the recipient's Testnet account and TrustLine if they are not there yet, then submits a Payment of the quoted amount from the treasury to that account. The remittance identifier is the Payment memo. The ledger result must be \code{tesSUCCESS}.
+
+On success the spendable balance is increased, the remittance is marked settled, and the transaction hash is stored, in one database commit. On failure the balance is not increased and the reason is stored on the message and the remittance. A message already completed, or a remittance that already has a hash, is not paid or credited again. An administrator can retry a pending, processing or failed message by putting a new entry on the stream. A completed settlement cannot be retried. Before submitting, the worker looks up a validated Payment on the sending account whose memo is this remittance id and adopts that hash instead of paying again; the wallet is still credited if this process had not credited it yet. Two overlapping worker runs can still both miss the lookup and pay twice.
+
+% ============================================================
+\section{Cash-out Flow}\label{sec:cashout}
+
+A recipient can hold UCTUSD without approved KYC, but requesting a cash-out requires it. The request freezes the fee, the rate and the fiat payout on the cash-out row, and reserves the full token amount by reducing spendable in one conditional update. If the balance is too small, the request is refused and spendable is unchanged. USD pays one dollar per token after the cash-out fee. Rand uses the live or fallback USD/ZAR rate with no FX margin. Those figures are not recalculated when an administrator later approves or completes the request.
+
+The wallet shows two numbers. Spendable is the internal balance after the reservation. The on-chain figure is not read live from the XRP Ledger. It is spendable plus the token amounts on this user's cash-outs that are still requested or approved, which are the tokens still sitting in the custodial account. After a failure, spendable is credited back and the two figures meet. After completion, spendable stays reduced and the on-chain figure drops with it, because the reserved tokens have been paid to the issuer.
+
+Approval does not submit a ledger transaction. Completion is allowed only from approved, and only when the custodial wallet has an address, a secret and a TrustLine. It submits a Payment of the reserved UCTUSD to the issuer and stores the burn hash. If that hash is already stored, a second Payment is not sent. If the ledger rejects the Payment, the cash-out stays approved so it can be tried again. Failing a requested or approved cash-out refunds spendable. A completed cash-out cannot be failed. No bank payment is made at any step.
+
+% ============================================================
+\section{Database Design}\label{sec:database}
+\fig{figures/database.pdf}{Entity-relationship diagram.}{fig:er}{0.9}
+
+The platform wallet, fee settings and limit tiers stand alone, as shown in Figure~\ref{fig:config}. The schema is built by three Alembic migrations (0001--0003).
+
+\fig{figures/database_config.pdf}{Configuration tables.}{fig:config}{0.9}
+
+% ============================================================
+\section{API Overview}\label{sec:api}
+
+The API is JSON over HTTP. Register and login do not need an existing session. Login returns an opaque bearer token, its expiry, and the user. Later calls send that token as \code{Authorization: Bearer}. The database stores only the SHA-256 hash of the token. Logout revokes that session immediately, so the same token stops working. Interactive documentation is at \code{/docs}, and \code{GET /health} does not require a login.
+
+Customers use the API for their own profile, KYC, beneficiaries, quotes, cash-in, cancellation, history, limits, wallet and cash-out requests. Adding a beneficiary, creating a quote and requesting a cash-out require approved KYC. Administrators review KYC, confirm cash-in, approve, complete or fail cash-outs, edit fees and limit tiers, inspect the platform wallet, and run or retry settlement. Both roles sign in through the same login, and each route checks which one is calling.
+
+Looking up a remittance by its MG tracking reference is not public. The sender, the linked recipient or an administrator may see it; any other signed-in user is refused. Senders also have a list of the remittances they created. A linked recipient sees incoming transfers on the wallet rather than on that send history.
+
+% ============================================================
+\section{Security Design}\label{sec:security}
+
+Passwords are stored as bcrypt hashes and are never returned. Login creates an unguessable bearer token and stores only its SHA-256 hash. The raw token is handed back once. A session lasts twelve hours unless it is logged out sooner. Logout sets the time the session was revoked, and a later call with that token is rejected. Other sessions for the same person stay valid until they expire or are logged out.
+
+Two separate encryption keys are read from the environment, not from the database. One encrypts the KYC identification number. The other encrypts the platform and recipient XRP Ledger secrets. A leak of one key does not decrypt the other. Wallet and platform-wallet responses include addresses and balances and do not include secrets. The row loads ciphertext, and the seed is decrypted only when settlement, cash-out completion or a TrustSet is about to sign. The identification number is decrypted when a KYC record is read, so the applicant and an administrator reviewing the application can see it.
+
+Mobile numbers are checked as 8 to 15 digits, and identification numbers as 6 to 20 characters. That is a format check. It is not a one-time password, and it is not a check against Home Affairs or a passport authority. Approval is still a separate decision by an administrator.
+
+% ============================================================
+\section{Regulatory Considerations}\label{sec:regulatory}
+
+Settling transfers in RLUSD rather than through banking rails does not remove a remittance platform from the scope of South African financial regulation. The most relevant areas are customer verification and anti-money-laundering controls, licensing, exchange control, consumer protection and the safekeeping of customer assets.
+
+\subsection{KYC and AML}
+Since December 2022, any company providing crypto-asset services in South Africa has counted as an accountable institution under the Financial Intelligence Centre Act (FICA), placing them under the same obligations as banks. In practice, that means verifying who a customer is before any money moves, watching transactions for suspicious activity and reporting suspicious or large transfers to the Financial Intelligence Centre. Extending these obligations to crypto-asset firms formed part of South Africa's response to weaknesses identified by the Financial Action Task Force, which placed the country on its grey list from 2023 to 2025, and supervisory attention in this area remains high.
+
+The platform's KYC process collects identity, address and source-of-funds information and allows only KYC-approved users to send money; an administrator must approve each submission. Daily and monthly limits on the rand amount a user sends are also enforced. These controls are not a transaction-monitoring or reporting engine: nothing screens sanctions lists or files reports with the Financial Intelligence Centre.
+
+\subsection{Licensing}
+In South Africa, any platform working with stablecoins and cross-border money transfers will require two forms of authorisation to operate.
+
+The first concerns the crypto assets themselves. In October 2022, the Financial Sector Conduct Authority classified all crypto assets as financial products, so any company handling them on behalf of customers needs a licence under a dedicated crypto-assets category (Financial Sector Conduct Authority, 2022). Operating without one is a criminal offence, punishable by a fine of up to R10 million or up to ten years in prison (Republic of South Africa, 2002).
+
+The second concerns moving money across the border, which the South African Reserve Bank regulates. Wise, for instance, was only able to start serving South African customers after the Reserve Bank conditionally approved it as an Authorised Dealer in Foreign Exchange with Limited Authority (Wise, 2025). The platform needs the same kind of licence, or a partnership with a dealer that already holds one. Holding that authorisation also means enforcing the Reserve Bank's limits on how much customers may send abroad. Each resident can currently send up to R2 million a year without special approval (South African Reserve Bank, 2026). Residency here depends on where a person lives, rather than on their nationality, so the allowance also applies to migrant workers who have settled in South Africa (Webber Wentzel, n.d.). It is less clear whether these limits apply to crypto assets, since South African courts have reached conflicting decisions and new regulations covering crypto are still in draft (National Treasury, 2026). A licensed dealer would have to apply the annual allowance to these transfers. This prototype does not enforce it; it enforces only its own configurable daily and monthly caps (R3,000 and R25,000 for a verified sender).
+
+\subsection{Consumer protection}
+The General Code of Conduct under the Financial Advisory and Intermediary Services Act requires providers to act honestly, fairly, with due skill, care and diligence, and in the interests of their clients (Republic of South Africa, 2002). The platform applies this first to price. Senders see every fee, the exchange rate and an estimate of what their recipient will receive before they confirm a transfer, rather than discovering part of the cost later in the rate. The cash-out fee and payout are estimates, recalculated when the recipient actually cashes out.
+
+The same duty extends to personal information. The Financial Intelligence Centre Act requires providers such as the platform to collect identity numbers, addresses and source-of-funds details, while the Protection of Personal Information Act governs how that information is kept. It must be secured against loss and unauthorised access, and it may only be sent outside South Africa under certain conditions, for example with the person's consent or where the recipient offers adequate data protection (Republic of South Africa, 2013).
+
+\subsection{Custody and safeguarding of customer assets}
+Because the platform holds the private keys to each recipient's custodial account, it carries responsibility for keeping those assets safe. In the prototype, one platform treasury pays each recipient's custodial Testnet account, and each user's spendable balance is an internal ledger. There is no separate bank account for client money, since cash-in and fiat payout are simulated. Private keys are stored encrypted, the decryption key is kept in the environment rather than the database, and a key is decrypted only immediately before settlement, cash-out completion or a TrustSet signs.
+
+\subsection{In the prototype}
+In the prototype, these duties appear only as the controls the software actually has: a KYC application, administrator approval before sending or cashing out, daily and monthly rand caps, and encrypted storage of the identification number and of the ledger secrets. The software does not screen sanctions lists, does not file reports, and does not hold a licence. Cash-in and fiat cash-out are simulated, so the system does not take rand or pay out dollars.
+
+% ============================================================
+\section{Assumptions and Limitations}\label{sec:assumptions}
+
+One customer account is used both to send and to receive. Administrators are created outside public registration. Beneficiaries are linked by matching mobile number or email, including when the recipient registers later. There is no invitation message. A person without approved KYC can register, hold UCTUSD and open the wallet, but cannot add a beneficiary, lock a quote or cash out. That block is a refusal for missing KYC, not a journey that reaches the unverified R0 cap and fails there.
+
+The on-ledger asset is UCTUSD on the XRP Ledger Testnet, unless the issuer and currency code in configuration are changed. One token is treated as one US dollar in the fee arithmetic. Quotes expire after 900 seconds. Cash-in methods are labels only. Cash-out fiat is US dollars or rand only. The default database is SQLite, and Redis must be running for a confirmed cash-in to be picked up by the worker.
+
+The daily and monthly check reads current usage and then inserts the quote. Nothing locks the sender's rows between those two steps, so two quotes submitted together can both pass and together exceed the cap. Settlement will not pay twice once the transaction hash has been saved, and before submitting, the worker adopts an earlier validated Payment with the same memo. Two overlapping worker runs can still both miss that lookup and pay twice. The automated tests replace the ledger calls, so they do not show a live Testnet payment. There is no sanctions or transaction-monitoring engine in the application.
+
+% ============================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+% The Word document has no reference list yet. These are the works cited
+% in the text; replace each line with the full entry in your referencing style.
+\begin{itemize}[leftmargin=1.5em, label={}]
+  \item Financial Sector Conduct Authority (2022). % full entry
+  \item FinMark Trust (2024). % full entry
+  \item National Treasury (2026). % full entry
+  \item Republic of South Africa (2002). % full entry
+  \item Republic of South Africa (2013). % full entry
+  \item South African Reserve Bank (2026). % full entry
+  \item United Nations (2015). % full entry
+  \item VALR (n.d.-a). % full entry
+  \item VALR (n.d.-c). % full entry
+  \item VALR (2025a). % full entry
+  \item Webber Wentzel (n.d.). % full entry
+  \item Wise (2025). % full entry
+  \item Wise (2026). % full entry
+  \item World Bank (2025). \emph{Remittance Prices Worldwide}. South Africa to Zimbabwe corridor, Q3 2025.
+\end{itemize}
+
+\end{document}

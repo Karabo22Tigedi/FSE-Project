@@ -1,0 +1,104 @@
+sequenceDiagram
+    actor S as Sender
+    actor R as Recipient
+    actor A as Admin
+    participant API as FastAPI + SQLite
+    participant FX as Exchange-rate API
+    participant Q as Redis Streams
+    participant W as Settlement worker
+    participant X as XRPL Testnet
+
+    rect rgb(238, 243, 248)
+    Note over S,X: 1. Register and log in
+    S->>API: POST /auth/register
+    S->>API: POST /auth/login
+    API-->>S: Bearer token (stored only as a SHA-256 hash)
+    end
+
+    rect rgb(248, 245, 236)
+    Note over S,X: 2. Mock KYC
+    S->>API: POST /kyc (ID number Fernet-encrypted)
+    A->>API: POST /kyc/{id}/approve or /reject
+    Note over S,API: Unapproved senders cannot create quotes
+    end
+
+    rect rgb(238, 243, 248)
+    Note over S,X: 3. Add a beneficiary
+    S->>API: POST /beneficiaries
+    API-->>S: Linked if mobile or email matches a user, else linked when the recipient registers
+    end
+
+    rect rgb(248, 245, 236)
+    Note over S,X: 4. Quote
+    S->>API: POST /remittances (ZAR amount)
+    API->>FX: GET USD/ZAR (cached 5 min, .env fallback)
+    FX-->>API: Mid-market rate
+    API->>API: Apply fee model, check daily and monthly limits
+    API-->>S: Quote: fee breakdown, UCTUSD amount, tracking_ref MG + 10 digits, expires_at (15 min)
+    end
+
+    rect rgb(238, 243, 248)
+    Note over S,X: 5. Cancel or let expire
+    opt Sender cancels before expiry
+        S->>API: POST /remittances/{id}/cancel
+        API-->>S: cancelled
+    end
+    Note over S,API: Cancelled and expired quotes do not count toward limits
+    end
+
+    rect rgb(248, 245, 236)
+    Note over S,X: 6. Cash-in (simulated)
+    S->>API: POST /remittances/{id}/cash-in (agent cash, bank transfer or card)
+    API-->>S: cash_in_pending
+    A->>API: POST /remittances/{id}/confirm-cash-in
+    API->>API: cash_in_confirmed, insert settlement message (outbox)
+    API->>Q: XADD settlement_messages
+    API-->>A: settlement_queued
+    Note over S,Q: Settlement is never queued before admin confirmation
+    end
+
+    rect rgb(238, 243, 248)
+    Note over S,X: 7. XRPL settlement
+    W->>Q: XREADGROUP (own pending, then idle, then new entries)
+    Q-->>W: Settlement message
+    opt First settlement for this recipient
+        W->>X: Create custodial account, TrustSet to UCTUSD issuer
+    end
+    W->>X: Payment, treasury to recipient (memo = remittance id)
+    alt Payment validated
+        X-->>W: tesSUCCESS + transaction hash
+        W->>API: One commit: store hash, credit spendable balance, status settled
+    else Payment fails
+        X-->>W: Error code (e.g. tecPATH_DRY)
+        W->>API: status settlement_failed, no credit
+    end
+    W->>Q: XACK (only after completed or failed)
+    end
+
+    rect rgb(248, 245, 236)
+    Note over S,X: 8. Recipient wallet
+    R->>API: GET /wallet/me
+    API-->>R: Spendable and on-chain UCTUSD, incoming transfers with hashes, cash-out history
+    end
+
+    rect rgb(238, 243, 248)
+    Note over S,X: 9. Cash-out (fiat payout simulated)
+    R->>API: POST /cash-outs (USD or ZAR, approved KYC required)
+    API-->>R: requested, spendable balance debited (reserved)
+    alt Approve, then complete
+        A->>API: POST /cash-outs/{id}/approve
+        A->>API: POST /cash-outs/{id}/complete
+        API->>X: Payment, recipient account to UCTUSD issuer (burn)
+        X-->>API: Transaction hash
+        Note over R,X: on_chain_balance now excludes this cash-out
+    else Fail (from requested or approved)
+        A->>API: POST /cash-outs/{id}/fail
+        API-->>R: Spendable balance refunded
+    end
+    end
+
+    rect rgb(248, 245, 236)
+    Note over S,X: Tracking (any time)
+    S->>API: GET /remittances/track/{ref}
+    Note over S,API: Allowed for the sender, the linked recipient or an admin (UI: /app/track/{ref})
+    end

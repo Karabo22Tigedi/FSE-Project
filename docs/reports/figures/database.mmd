@@ -1,0 +1,122 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "fontFamily": "Lato, Helvetica, Arial, sans-serif",
+  "fontSize": "14px",
+  "primaryColor": "#1f4e8c",
+  "primaryTextColor": "#ffffff",
+  "primaryBorderColor": "#163a6b",
+  "lineColor": "#1f3a5f",
+  "textColor": "#1f3a5f",
+  "attributeBackgroundColorOdd": "#ffffff",
+  "attributeBackgroundColorEven": "#eef4fb",
+  "tertiaryColor": "#ffffff"
+}, "themeCSS": ".row-rect-even path, .row-rect-even rect { fill: #eef4fb !important; } .row-rect-odd path, .row-rect-odd rect { fill: #ffffff !important; } * { font-family: Lato, Helvetica, Arial, sans-serif !important; } .relationshipLabel, .relationshipLabelBox + text, .er.relationshipLabel { fill: #1f3a5f !important; } .edgeLabel, .edgeLabel p, .edgeLabel span { color: #1f3a5f !important; } .attributeBoxOdd, .attributeBoxEven { stroke: #b8cde6 !important; } .row-rect-odd path, .row-rect-even path { stroke: #b8cde6 !important; } .label.attribute-type, .label.attribute-name, .label.attribute-keys, .label.attribute-comment { color: #1f3a5f !important; } .label.attribute-type span, .label.attribute-name span, .label.attribute-keys span, .label.attribute-comment span, .label.attribute-type p, .label.attribute-name p, .label.attribute-keys p, .label.attribute-comment p { color: #1f3a5f !important; }"}}%%
+erDiagram
+    direction LR
+    USERS {
+        string id PK "UUID"
+        string full_name
+        string email UK
+        string mobile_number UK
+        string password_hash "bcrypt"
+        enum role "customer | admin"
+    }
+    SESSIONS {
+        string id PK
+        string user_id FK
+        string token_hash UK "SHA-256 of bearer token"
+        datetime expires_at
+        datetime revoked_at "set on logout"
+    }
+    KYC_APPLICATIONS {
+        string id PK
+        string user_id FK,UK "one per user"
+        string full_name
+        date date_of_birth
+        string nationality
+        string identification_number "Fernet-encrypted"
+        text residential_address
+        string mobile_number
+        string email_address
+        string source_of_funds
+        enum status "not_submitted | pending | approved | rejected"
+        text rejection_reason
+        datetime submitted_at
+        datetime reviewed_at
+        string reviewed_by FK "admin user"
+    }
+    BENEFICIARIES {
+        string id PK
+        string sender_id FK
+        string full_name
+        string mobile_number "mobile or email required"
+        string email_address
+        string country
+        string payout_currency
+        string relationship_to_sender
+        string linked_user_id FK "null until matched"
+    }
+    REMITTANCES {
+        string id PK
+        string tracking_ref UK "MG + 10 digits"
+        string sender_id FK
+        string beneficiary_id FK
+        decimal zar_amount
+        decimal exchange_rate "after FX margin"
+        decimal fx_margin_percentage
+        decimal transaction_fee_zar
+        decimal rlusd_amount "UCTUSD sent"
+        decimal cash_out_fee_percentage
+        decimal estimated_cash_out_fee
+        decimal estimated_recipient_payout
+        enum status "quoted ... settled | settlement_failed"
+        enum cash_in_method "agent_cash | bank_transfer | card"
+        datetime cash_in_initiated_at
+        datetime cash_in_confirmed_at
+        string cash_in_confirmed_by FK "admin user"
+        string xrpl_settlement_tx_hash
+        datetime settled_at
+        string settlement_failure_reason
+        datetime expires_at "quote TTL, 15 min"
+    }
+    SETTLEMENT_MESSAGES {
+        string id PK
+        string remittance_id FK,UK "one per remittance"
+        enum status "pending | processing | completed | failed"
+        int attempts
+        text failure_reason
+        string stream_entry_id "Redis Stream ID"
+        datetime processed_at
+    }
+    RECIPIENT_WALLETS {
+        string id PK
+        string user_id FK,UK "one per user"
+        string xrpl_address "Testnet account"
+        string secret "Fernet-encrypted"
+        bool trustline_established
+        decimal balance "spendable UCTUSD"
+    }
+    CASH_OUT_REQUESTS {
+        string id PK
+        string user_id FK
+        decimal rlusd_amount
+        string fiat_currency "USD | ZAR"
+        decimal exchange_rate
+        decimal cash_out_fee_percentage
+        decimal fee_amount_rlusd
+        decimal fiat_payout_amount
+        enum status "requested | approved | completed | failed"
+        datetime actioned_at
+        string actioned_by FK "admin user"
+        datetime completed_at
+        string xrpl_burn_tx_hash
+    }
+
+    USERS ||--o{ SESSIONS : "logs in with"
+    USERS ||--o| KYC_APPLICATIONS : "submits"
+    USERS ||--o{ BENEFICIARIES : "adds"
+    USERS |o--o{ BENEFICIARIES : "is linked as"
+    USERS ||--o{ REMITTANCES : "sends"
+    BENEFICIARIES ||--o{ REMITTANCES : "receives"
+    REMITTANCES ||--o| SETTLEMENT_MESSAGES : "is queued as"
+    USERS ||--o| RECIPIENT_WALLETS : "holds"
+    USERS ||--o{ CASH_OUT_REQUESTS : "requests"

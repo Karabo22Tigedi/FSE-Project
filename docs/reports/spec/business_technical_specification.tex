@@ -8,7 +8,7 @@
 \groupcover{Business and Technical Specification}
 
 \noindent
-This specification describes \textbf{Group 3's} XRPL remittance prototype as implemented in this GitHub fork (Karabo22Tigedi / FSE-Project). An earlier GitHub sketch by Kerry-Lynn Whyte established FastAPI, SQLite, Redis Streams, and Testnet Payments. This document is about \emph{our} patched system, not that sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and thirty-two automated tests currently pass. The examiner-facing product is the Vite React UI in \texttt{frontend/} (Section~\ref{sec:ui}), talking to FastAPI on port 8000.
+This specification describes \textbf{Baobab} (``Rooted here. Reaching there.''), \textbf{Group 3's} XRPL remittance prototype, as implemented in the repository \texttt{kerryw33/FSE-Project}, which is the main source for the project. It began as Kerry-Lynn Whyte's GitHub sketch, which established FastAPI, SQLite, Redis Streams, and Testnet Payments; the group's patches were made on \texttt{Karabo22Tigedi/FSE-Project} and are merged back into it. This document is about \emph{our} patched system, not the original sketch. Cash-in and cash-out remain simulated. Using a dollar stablecoin does not remove South African exchange-control, anti-money-laundering, or licensing duties \citep{UCTBrief2026}. One hundred and thirty-eight automated tests currently pass. The examiner-facing product is the Vite React UI in \texttt{frontend/} (Section~\ref{sec:ui}), talking to FastAPI on port 8000.
 
 \section{Business problem}
 Cross-border remittances move household income to people who often collect cash at an agent. Western Union and MoneyGram are the familiar brands: the sender pays rand at an agent or online, the operator takes a fee, and the recipient collects cash on the other side after showing identification. Those operators are large, licensed money transmitters with agent networks in many countries. They are also expensive on small sends, and the price the customer sees is often a mix of a posted fee and a worse-than-mid-market exchange rate.
@@ -39,75 +39,171 @@ The journey follows the brief \citep{UCTBrief2026} and is implemented end-to-end
 Anyone with a tracking reference who is the sender, the linked recipient, or an admin can open \texttt{/app/track/\{ref\}} or call \texttt{GET /remittances/track/\{ref\}}.
 
 \section{Functional requirements}
-Table~\ref{tab:fr} maps the brief's required behaviour to \emph{our} endpoints. Interactive OpenAPI lives at \texttt{/docs}. \texttt{GET /health} is unauthenticated.
+\label{sec:fr}
+The requirements below are the group's Functional Requirements v2. Each traces to a stage of the core user journey (Registration $\to$ KYC $\to$ Beneficiary $\to$ Quote $\to$ Cash-in $\to$ Queue/Settlement $\to$ Wallet $\to$ Cash-out) or to a supporting admin function. The third column names where each one is implemented, checked against the code. Every requirement is met in full except FR-04, which is met in part by design (Section~\ref{sec:assumptions}). Interactive OpenAPI lives at \texttt{/docs}; \texttt{GET /health} is unauthenticated.
 
-\begin{table}[ht]
-\centering
-\caption{Functional behaviour mapped to this fork's API.}
-\label{tab:fr}
+\newcommand{\frtable}[1]{%
 \footnotesize
-\begin{tabular}{@{}p{0.28\textwidth}p{0.66\textwidth}@{}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.075\textwidth}>{\raggedright\arraybackslash}p{0.42\textwidth}>{\raggedright\arraybackslash}p{0.465\textwidth}@{}}
 \toprule
-\textbf{Capability} & \textbf{Our implementation} \\
+\textbf{ID} & \textbf{Requirement} & \textbf{Implemented in} \\
 \midrule
-Register, login, logout, profile &
-\texttt{POST /auth/register}, \texttt{/auth/login}, \texttt{/auth/logout};
-\texttt{GET}/\texttt{PATCH /users/me}. Passwords bcrypt; sessions hashed at rest.
-Mobile numbers must be 8--15 digits with an optional leading \texttt{+}; spaces and hyphens are stripped. \\
-Mock KYC + admin review &
-\texttt{POST /kyc}; \texttt{GET /kyc/me}, \texttt{/kyc/me/status};
-admin \texttt{GET /kyc}, \texttt{POST /kyc/\{id\}/approve\textbar reject}.
-ID number is 6--20 characters and encrypted with the KYC Fernet key. \\
-Beneficiaries &
-\texttt{POST}/\texttt{GET /beneficiaries}. Auto-link on mobile/email. \\
-Quote, fees, limits &
-\texttt{POST /remittances}; \texttt{GET /limits/me};
-admin \texttt{GET}/\texttt{PUT /admin/fee-config},
-\texttt{GET}/\texttt{PUT /admin/limit-tiers/\{tier\}}. \\
-Quote lifecycle &
-TTL 15 minutes; \texttt{POST /remittances/\{id\}/cancel};
-cash-in rejected if expired or cancelled;
-fee-consumes-send rejected with 422. \\
-Tracking &
-\texttt{tracking\_ref} on \texttt{RemittanceOut};
-\texttt{GET /remittances/track/\{ref\}}. \\
-Simulated cash-in &
-\texttt{POST /remittances/\{id\}/cash-in};
-admin \texttt{POST \ldots/confirm-cash-in} enqueues settlement. \\
-Queued XRPL settlement &
-Redis Stream \texttt{settlement\_messages};
-\texttt{POST /admin/settlement/run};
-\texttt{GET /admin/settlement};
-\texttt{POST /admin/settlement/\{id\}/retry}
-(pending, processing, or failed; completed is 409). \\
-Custodial wallet &
-\texttt{GET /wallet/me}: \texttt{balance\_rlusd} = spendable;
-also \texttt{spendable\_balance} and \texttt{on\_chain\_balance}
-(excludes completed cash-outs).
-Admin \texttt{GET /admin/platform-wallet} reports treasury address,
-TrustLine, and UCTUSD liquidity. \\
-Simulated cash-out &
-\texttt{POST /cash-outs}; \texttt{GET /cash-outs/me};
-admin list/approve/complete/fail. USD and ZAR only. \\
-Sender history &
-\texttt{GET /remittances/me}; admin \texttt{GET /remittances}. \\
+\endhead
+#1
 \bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\normalsize
+}
+
+\subsection{Registration and authentication}
+\frtable{%
+FR-01 & Register an account with full name, email address, mobile number, and password. &
+\texttt{POST /auth/register}; UI \texttt{/register}. Mobile numbers must be 8--15 digits with an optional leading \texttt{+}; passwords are bcrypt-hashed. \\
+FR-02 & Log in with registered credentials. &
+\texttt{POST /auth/login} returns a bearer token; only its SHA-256 hash is stored. \\
+FR-02a & Log out, terminating the session. &
+\texttt{POST /auth/logout} sets \texttt{revoked\_at} on the session. \\
+FR-03 & Email address and mobile number are unique across accounts. &
+Unique constraints on \texttt{users.email} and \texttt{users.mobile\_number}; a duplicate registration returns 409. \\
+FR-04 & Distinguish sender, recipient, and administrator roles. &
+\emph{Partial, by design.} Stored roles are \texttt{customer} and \texttt{admin}; sender and recipient are what a customer does on a given transfer (Section~\ref{sec:assumptions}). Admins come only from \texttt{scripts/create\_admin.py} or the \texttt{ADMIN\_EMAIL}/\texttt{ADMIN\_PASSWORD} start-up setting. \\
+FR-04a & View and update basic profile information. &
+\texttt{GET}/\texttt{PATCH /users/me}; UI \texttt{/app/profile}. \\
+}
+
+\subsection{KYC}
+\frtable{%
+FR-05 & Collect full name, date of birth, nationality, identification number, residential address, mobile number, email address, and source of funds. &
+\texttt{POST /kyc} stores all eight fields. The ID number (6--20 characters) is encrypted with the KYC Fernet key. \\
+FR-06 & Submit a completed KYC application for review. &
+\texttt{POST /kyc} sets status \texttt{pending}; resubmission overwrites the application until it is approved. \\
+FR-07 & Administrator can view a submitted application. &
+\texttt{GET /kyc}, \texttt{GET /kyc/\{id\}}; UI \texttt{/admin/kyc}. \\
+FR-08 & Administrator can approve or reject an application. &
+\texttt{POST /kyc/\{id\}/approve} or \texttt{/reject} (with a reason); the UI confirms the decision in a dialog naming the applicant. \\
+FR-08a & User can view their own KYC status. &
+\texttt{GET /kyc/me/status}, \texttt{GET /kyc/me}; shown on the sender home screen. \\
+FR-09 & No remittance without approved KYC. &
+\texttt{POST /remittances} requires approved KYC; the UI shows ``KYC pending'' instead of the send form. \\
+FR-09a & No cash-out without approved KYC. &
+\texttt{POST /cash-outs} requires approved KYC. A recipient can still receive and hold UCTUSD without it. \\
+}
+The assumption attached to FR-09a is adopted as stated: senders need approved KYC before sending and recipients before cashing out, but receiving and holding needs none.
+
+\subsection{Beneficiary management}
+\frtable{%
+FR-10 & Approved sender adds a beneficiary with full name, mobile number or email, country, payout currency, and relationship. &
+\texttt{POST /beneficiaries}, approved senders only; all five fields stored. UI \texttt{/app/beneficiaries}. \\
+FR-11 & Require at least a mobile number or an email address. &
+Request validation rejects a beneficiary with neither (422). \\
+FR-12 & Sender can list their beneficiaries. &
+\texttt{GET /beneficiaries}, each with a Linked or Unlinked badge in the UI. \\
+FR-12a & Link a beneficiary to a recipient account by matching mobile number or email. &
+Auto-match when the beneficiary is added, and again whenever a new account registers (\texttt{services/beneficiary\_linking.py}). \\
+FR-12b & If no account matches, leave the beneficiary unlinked; no wallet and no settlement until a matching account registers. &
+The record stays unlinked. If cash-in is confirmed anyway, the worker refuses to settle (``Beneficiary is not linked to a registered recipient account''), creates no wallet, credits nothing, and marks the transfer \texttt{settlement\_failed}; an administrator retries once the recipient registers and is linked. \\
+FR-12c & Provision a custodial wallet only once the beneficiary is linked to a registered recipient account. &
+The recipient's custodial Testnet account is created at first settlement, and only for the linked user. \\
+}
+The linking mechanism left open in the requirements is decided as auto-match on an existing or later-registered account; there is no invite-to-register flow.
+
+\subsection{Quote, fees, and limits}
+\frtable{%
+FR-13 & Determine the USD/ZAR rate when the transaction is created (public API, mock, or rate table). &
+\texttt{open.er-api.com} at quote creation, cached for five minutes, with a \texttt{.env} fallback rate (Section~\ref{sec:fx}). The rate used is stored on the quote. \\
+FR-14 & Quote shows ZAR amount, rate, transaction fee, FX margin, RLUSD amount, cash-out fee, and estimated payout. &
+\texttt{POST /remittances} returns \texttt{zar\_amount}, \texttt{exchange\_rate}, \texttt{transaction\_fee\_zar}, \texttt{fx\_margin\_percentage}, \texttt{rlusd\_amount}, \texttt{estimated\_cash\_out\_fee}, and \texttt{estimated\_recipient\_payout}, plus \texttt{tracking\_ref} and \texttt{expires\_at}. \\
+FR-15 & Fees use a configurable fixed fee, percentage fee, FX margin, and cash-out fee. &
+One \texttt{FeeConfig} row (Section~\ref{sec:fees}). \\
+FR-15a & Administrator can view and update the fee parameters. &
+\texttt{GET}/\texttt{PUT /admin/fee-config}; UI \texttt{/admin/config}. \\
+FR-16 & Check the amount against daily and monthly limits before proceeding. &
+Checked before the quote is inserted; cancelled and expired quotes do not count (Section~\ref{sec:limits}). \\
+FR-16a & Sender can view limits and remaining allowance. &
+\texttt{GET /limits/me} returns limits, usage, and remaining amounts for today and this month. \\
+FR-16b & Administrator can view and update limit tiers. &
+\texttt{GET /admin/limit-tiers}, \texttt{PUT /admin/limit-tiers/\{tier\_key\}}; UI \texttt{/admin/config}. \\
+FR-17 & Reject a request that would exceed a limit, and say why. &
+HTTP 422 naming the limit, e.g. ``This remittance would exceed your daily limit of \ldots{} ZAR''. \\
+}
+
+\subsection{Simulated cash-in}
+\frtable{%
+FR-18 & Sender initiates a simulated ZAR payment by a supported method. &
+\texttt{POST /remittances/\{id\}/cash-in} with \texttt{agent\_cash}, \texttt{bank\_transfer}, or \texttt{card}; only for an unexpired, uncancelled quote. \\
+FR-19 & Administrator or mock service confirms the payment. &
+\texttt{POST /remittances/\{id\}/confirm-cash-in}; UI \texttt{/admin/cash-in}. \\
+FR-20 & No settlement until cash-in is confirmed. &
+Settlement is enqueued only inside confirm-cash-in; no Payment is submitted before it. \\
+}
+
+\subsection{Queue and settlement}
+\frtable{%
+FR-21 & Queue a settlement message once cash-in is confirmed. &
+Confirm-cash-in writes a \texttt{SettlementMessage} row (outbox) and adds it to the Redis Stream \texttt{settlement\_messages}. \\
+FR-22 & A worker consumes messages and submits the transfer to XRPL Testnet. &
+\texttt{scripts/run\_settlement\_worker.py} or \texttt{POST /admin/settlement/run} reads the stream as a consumer group and submits a UCTUSD Payment with \texttt{xrpl-py}. \\
+FR-23 & Record each outcome, with the transaction hash on success. &
+Hash or failure reason stored on the remittance and the message; \texttt{GET /admin/settlement}; UI \texttt{/admin/settlement}. \\
+FR-24 & A failed transaction does not credit the recipient. &
+Status becomes \texttt{settlement\_failed} with no credit; covered by \texttt{tests/test\_settlement.py}. \\
+FR-25 & A duplicate message cannot credit twice. &
+One message per remittance (unique constraint); if a hash is already stored the worker marks the job complete without paying or crediting; retrying a completed message returns 409. \\
+FR-26 & Update the wallet balance once settlement is confirmed on-ledger. &
+The worker waits for ledger validation, then stores the hash, credits the balance, and sets \texttt{settled} in one database commit. \\
+}
+
+\subsection{Recipient wallet and sender history}
+\frtable{%
+FR-27 & Each recipient has a custodial web wallet. &
+A custodial Testnet account per recipient, secret encrypted with its own Fernet key; \texttt{GET /wallet/me}; UI \texttt{/app/wallet}. \\
+FR-28 & Wallet shows balance, incoming transfers, cash-outs, status, date, and transaction hash. &
+Spendable and on-chain balances; incoming transfers with amount, status, dates, and hash; cash-outs with amount, currency, status, dates, and burn hash. \\
+FR-28a & Sender can view status and history of sent remittances. &
+\texttt{GET /remittances/me} and \texttt{GET /remittances/track/\{ref\}}; UI \texttt{/app/history} and \texttt{/app/track/\{ref\}} show the quote breakdown, a status timeline, the hash, and a scannable QR code for the track page. \\
+}
+
+\subsection{Simulated cash-out}
+\frtable{%
+FR-29 & Establish a TrustLine to the issuer for any wallet holding the token. &
+TrustSet for the platform treasury (\texttt{scripts/setup\_platform\_wallet.py} or \texttt{POST /admin/platform-wallet/trustline}) and for each recipient account before its first payment. \\
+FR-30 & Recipient requests a cash-out to USD or local fiat. &
+\texttt{POST /cash-outs} to USD or ZAR; the amount is reserved from the spendable balance at once. \\
+FR-31 & Payout uses the applicable rate, less the cash-out fee. &
+Fee taken from the UCTUSD amount; USD pays out 1:1, ZAR at the live or fallback USD/ZAR rate without the FX margin. \\
+FR-32 & Track cash-outs as requested, approved, completed, or failed. &
+\texttt{requested} $\to$ \texttt{approved} $\to$ \texttt{completed}, or \texttt{failed} from requested or approved. Complete burns the reserved UCTUSD by paying the issuer; fail refunds the spendable balance. \\
+}
+
+\subsection{Administration}
+\frtable{%
+FR-33 & Admin interface for KYC applications. &
+UI \texttt{/admin/kyc} (FR-07, FR-08). \\
+FR-34 & Admin interface for confirming cash-in. &
+UI \texttt{/admin/cash-in} (FR-19). \\
+FR-35 & Admin interface for actioning cash-outs. &
+UI \texttt{/admin/cash-out}: \texttt{POST /cash-outs/\{id\}/approve}, \texttt{/complete}, \texttt{/fail}. \\
+}
+FR-15a and FR-16b are also administration functions; they are listed with the fees and limits they configure. Beyond the requirements, the system adds a 15-minute quote expiry with cancel (\texttt{POST /remittances/\{id\}/cancel}), \texttt{MG} tracking references, admin settlement retry, and a platform-wallet screen reporting treasury TrustLine and liquidity.
 
 \section{Fee model}
-Fees are a single admin-editable \texttt{FeeConfig} row, not a history table. Percentages are fractions (0.0100 means 1\%). Seeded defaults are a R25.00 fixed fee, 1\% of send, 2\% FX margin, and 1.5\% cash-out.
+\label{sec:fees}
+The platform earns in three places: a transaction fee when the sender pays in rand, a margin on the exchange rate, and a fee when the recipient cashes out. The four numbers behind these charges are kept in a single settings record, \texttt{FeeConfig}. An administrator can change them on the Config screen (\texttt{/admin/config}, which calls \texttt{PUT /admin/fee-config}), and the next quote uses the new values, with no code change or restart. Only the current values are kept, not a history. Quotes already issued are unaffected, because each quote stores the fee and rate it was priced at.
 
-Let \texttt{zar} be the send amount, \texttt{fixed} and \texttt{percentage} the transaction-fee parameters, \texttt{midmarket} the USD/ZAR rate, and \texttt{fx\_margin} the spread fraction. Then:
-\begin{align*}
-\texttt{transaction\_fee} &= \texttt{fixed} + \texttt{zar}\times\texttt{percentage} \\
-\texttt{effective\_rate} &= \texttt{midmarket}\times(1+\texttt{fx\_margin}) \\
-\texttt{net\_zar} &= \texttt{zar} - \texttt{transaction\_fee} \\
-\texttt{rlusd} &= \texttt{net\_zar}\,/\,\texttt{effective\_rate}
-\end{align*}
-The quote is rejected (HTTP 422) if \texttt{rlusd} $\le 0$ (equivalently if net ZAR after the transaction fee is not positive). Transaction fees are rounded to two decimal places; RLUSD amounts to six, half-up. RLUSD is treated as 1:1 with USD.
+The system starts with a fixed fee of R25.00, a percentage fee of 1\% of the amount sent, an FX margin of 2\%, and a cash-out fee of 1.5\%. Percentages are stored as fractions, so 1\% is stored as 0.0100.
 
-The FX margin makes the sender's conversion \emph{worse} than mid-market: more rand per dollar means fewer dollars received. The cash-out percentage shown on the remittance quote is an \emph{estimate}. At cash-out time the fee is reapplied to the RLUSD amount, USD is 1:1 after that fee, and ZAR cash-out uses the live (or fallback) USD/ZAR rate \emph{without} the FX margin.
+The process for calculating a quote is as follows.
+
+The \emph{transaction fee} is the \emph{fixed fee} plus a percentage of the amount sent (\texttt{zar\_amount}), and it comes off the rand amount first. The remainder (\emph{net\_zar}) is then converted to dollars at the \emph{effective rate} (the mid-market rate, marked up by the FX margin):
+\begin{verbatim}
+transaction_fee = fixed_fee + zar_amount * percentage
+effective_rate  = midmarket * (1 + fx_margin)
+net_zar         = zar_amount - transaction_fee
+rlusd           = net_zar / effective_rate
+\end{verbatim}
+Because the margin raises the number of rand needed for each dollar, the sender receives fewer dollars than the mid-market rate would give. That difference is the platform's exchange-rate income, and the quote shows it rather than hiding it. The token is treated as worth exactly one US dollar. Fees are rounded to the nearest cent and token amounts to six decimal places, with halves rounded up. If the fee is as large as the amount sent, nothing is left to convert, so the quote is refused (HTTP 422).
+
+The cash-out fee on the quote is only an estimate, because the recipient may cash out later, in part, or in a different currency. When they do, the cash-out fee is taken from the token amount at the rate set at that time. A USD cash-out then pays one dollar per token; a ZAR cash-out converts at the current USD/ZAR rate, or the fallback rate, with no FX margin added.
 
 \subsection{Worked example}
 Using seeded defaults and the configured fallback mid-market rate of 18.50 (the live API may differ; the algebra does not). For a R1{,}370.00 send, comparable to the RPW send size discussed by \citet{Rateweb2026}:
@@ -140,12 +236,20 @@ Table~\ref{tab:fees} is the seeded \texttt{FeeConfig} an admin can edit at \text
 \end{table}
 
 \section{Exchange rates}
-The brief allows a public API, a mock service, or a configured table \citep{UCTBrief2026}. We use the first, with the third as fallback. \texttt{GET https://open.er-api.com/v6/latest/USD} supplies \texttt{rates.ZAR}. Successes are cached for 300 seconds (\texttt{EXCHANGE\_RATE\_CACHE\_SECONDS}) so concurrent quotes do not stampede a free endpoint. Any failure (network, timeout, non-2xx, missing ZAR field) uses \texttt{USD\_ZAR\_RATE} from \texttt{.env} (default 18.50). There is no admin API for the fallback; changing it means editing the environment and restarting, and it only matters while the live API is down. Tests mock the live call except for dedicated exchange-rate tests.
+\label{sec:fx}
+The brief allows the exchange rate to come from a public API, a mock service, or a configured rate table \citep{UCTBrief2026}. We use a public API, with a configured rate as the backup.
+
+When a quote is created, the system requests the latest US dollar rates from a free public service (\texttt{open.er-api.com}) and takes the rand rate from the reply. It keeps that rate for five minutes and reuses it for every quote made in that time, so that a burst of users does not flood a free service with requests. The first quote after the five minutes are up fetches a fresh rate. The five-minute period is set by \texttt{EXCHANGE\_RATE\_CACHE\_SECONDS}.
+
+If the request fails for any reason (no network, a timeout, an error response, or a reply with no rand rate), the quote is not refused. Instead the system uses a fixed backup rate from the settings file, \texttt{USD\_ZAR\_RATE} (18.50 unless changed), and keeps it for five minutes before trying the live service again. The backup rate cannot be changed from the admin screens; it is changed by editing the settings file and restarting the server, and it only matters while the live service is down.
+
+The rate used, with the FX margin applied, is stored on each quote, so the sender sees the rate they were actually charged. The automated tests never contact the live service; they substitute a fixed or simulated rate so that results are repeatable.
 
 \section{Remittance limits}
+\label{sec:limits}
 Tiers are derived from KYC, not stored on the user: approved $\to$ \texttt{verified}, otherwise \texttt{unverified}. Seeded caps match the brief's example: unverified R0 / R0 per day and month; verified R3{,}000 / R25{,}000. Admins may change caps via \texttt{PUT /admin/limit-tiers/\{tier\_key\}}. Unverified is not reachable through \texttt{POST /remittances} because that route requires approved KYC; the zero caps still exist so the example table is configurable.
 
-Usage sums the sender's ZAR since the start of the UTC day or calendar month, with two exclusions that the original sketch did not have: \texttt{cancelled} never counts; \texttt{quoted} rows with \texttt{expires\_at} already in the past never count. Unexpired quotes and every later live status---including \texttt{settlement\_failed}---do count. That is deliberate: a failed on-chain payment still represents a confirmed cash-in that occupied limit capacity until an operator decides otherwise.
+Usage sums the sender's ZAR since the start of the UTC day or calendar month, with two exclusions that the original sketch did not have: \texttt{cancelled} never counts; \texttt{quoted} rows with \texttt{expires\_at} already in the past never count. Everything else counts: quotes that have not yet expired, and every status from cash-in onwards, including \texttt{settlement\_failed}. This is deliberate. A failed on-chain payment still follows a confirmed cash-in, so the sender's rand was received and the amount stays counted. An administrator can retry the settlement, but nothing releases the amount early; it stops counting only when the day or month ends.
 
 \begin{table}[ht]
 \centering
@@ -239,7 +343,7 @@ Enqueue inserts at most one \texttt{SettlementMessage} per remittance (unique co
 
 The worker first reclaims its pending-entries list (\texttt{XREADGROUP} id \texttt{0}), then idle pending entries (\texttt{XAUTOCLAIM} on Redis~6.2+, else \texttt{XPENDING}+\texttt{XCLAIM}; local Memurai 5.0.14 has no \texttt{XAUTOCLAIM}), then new \texttt{>} entries. Entries are acknowledged only after the message is \texttt{completed} or \texttt{failed}. A crash mid-flight leaves the entry in the PEL for reclaim.
 
-Before submitting a Payment, if \texttt{xrpl\_settlement\_tx\_hash} is already set, the worker marks completed and \textbf{does not pay or credit again}. On the success path the Payment memo carries the remittance id; the hash, recipient credit, \texttt{settled}, and \texttt{completed} are one database commit. Admin retry accepts \texttt{failed}, \texttt{processing}, and \texttt{pending} (reset to pending, republish). \texttt{completed} returns 409.
+Before submitting a Payment, if \texttt{xrpl\_settlement\_tx\_hash} is already set, the worker marks completed and \textbf{does not pay or credit again}. If no hash is stored, the worker first searches the treasury's validated ledger history for a successful Payment whose memo carries this remittance id, and adopts that hash instead of paying again. This covers a crash after the ledger accepted a Payment but before the database recorded it; if the lookup itself fails, the worker does not pay. On the success path the Payment memo carries the remittance id; the hash, recipient credit, \texttt{settled}, and \texttt{completed} are one database commit. Admin retry accepts \texttt{failed}, \texttt{processing}, and \texttt{pending} (reset to pending, republish). \texttt{completed} returns 409.
 
 \subsection{Cash-out}
 The recipient must have approved KYC to cash out but may hold UCTUSD without it. Spendable \texttt{RecipientWallet.balance} is debited atomically at request time (\texttt{UPDATE \ldots WHERE balance >= :amt}). \texttt{GET /wallet/me} reports \texttt{balance\_rlusd} and \texttt{spendable\_balance} as that spendable figure (the slot is currently UCTUSD; official RLUSD later via \texttt{.env} if funded). \texttt{on\_chain\_balance} is spendable plus cash-out amounts in \texttt{requested} or \texttt{approved} only; it excludes completed cash-outs. Fiat payout is still simulated, but complete submits a Payment of the reserved UCTUSD from the recipient custodial account to the official UCTUSD issuer (burn/redeem). After a request, spendable drops while on-chain stays higher by the reserved amount until complete, when the on-chain figure drops too. A failed cash-out refunds spendable.
@@ -304,7 +408,7 @@ Authz in short: customers act on their own resources; KYC-approved customers cre
 \section{Security}
 Passwords are bcrypt via passlib and never stored in plaintext. Login returns a urlsafe bearer token once; the database stores only \texttt{SHA-256} of that token. Logout sets \texttt{revoked\_at}. Opaque sessions were chosen over JWT because this is a single FastAPI process: logout must actually revoke access, which a signed JWT cannot do without a server-side denylist that looks like the sessions table anyway.
 
-Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets are decrypted only in the signing path, and the wallet and platform-wallet response models have no secret field, so a private key cannot be serialised into an API response even by mistake. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
+Two Fernet keys are required: \texttt{KYC\_ENCRYPTION\_KEY} for the identification number, \texttt{XRPL\_KEY\_ENCRYPTION\_KEY} for platform and recipient XRPL secrets. A leak of one category does not decrypt the other. Keys live in environment variables, not in the database, not in API responses, not in application logs, and not in git (\texttt{.env} is local; \texttt{.env.example} has placeholders). XRPL secrets load from the database as ciphertext and are decrypted only immediately before signing, and the wallet and platform-wallet response models have no secret field, so a private key cannot be serialised into an API response even by mistake. Bad ciphertext raises \texttt{RuntimeError} rather than returning empty values. Private keys are never printed by \texttt{setup\_platform\_wallet}. There is no custom application logger beyond uvicorn's access log (method/path/status, no bodies).
 
 CORS is a demo convenience for the local Vite origin, not an authentication mechanism. Production would restrict origins, put keys in a secrets manager, rotate Fernet keys with a dual-decrypt window, and stop using SQLite as the vault for encrypted seeds.
 
@@ -327,10 +431,11 @@ Cross-border rand payments sit inside South African exchange-control and authori
 \paragraph{Licensing.}
 A commercial Western Union competitor in South Africa typically needs a FICA accountable-institution posture, Reserve Bank authorisation where the activity is a remittance or payment service, and---if offering crypto custody or exchange---the applicable FSCA crypto-asset authorisation. Agent cash-in/out may also engage payment-system and consumer-protection rules (clear fees, receipts, complaint handling). This coursework prototype is not licensed and must not be pointed at real customer funds or Mainnet credentials \citep{UCTBrief2026}.
 
-Consumer protection and safeguarding follow from the same honesty: quoted fees should match charged fees (our quote locks the breakdown for 15 minutes); customer secrets should not leak (Section~11); and simulated balances must not be described as redeemable bank money. We do not hold client fiat in a trust account because we never collect real fiat. The web UI in Section~\ref{sec:ui} shows the locked fee breakdown, the \texttt{MG} tracking reference, and an academic contact block (course, group, campus, repository). That is coursework disclosure, not a licensed complaints desk.
+Consumer protection and safeguarding follow from the same honesty: quoted fees should match charged fees (our quote locks the breakdown for 15 minutes); customer secrets should not leak (Section~11); and simulated balances must not be described as redeemable bank money. We do not hold client fiat in a trust account because we never collect real fiat. The web UI in Section~\ref{sec:ui} shows the locked fee breakdown, the \texttt{MG} tracking reference, and an About section (what Baobab is, the course, the team, and the repository). That is coursework disclosure, not a licensed complaints desk.
 
 \section{Assumptions and limitations}
-Assumptions we adopted on purpose: one customer identity for send and receive; admins only via \texttt{scripts/create\_admin.py}; one KYC row with overwrite-on-resubmit until approved; beneficiary auto-match rather than invite-to-register; hybrid treasury plus per-recipient XRPL accounts; issuer address and currency code as \texttt{.env} so UCTUSD versus RLUSD is a config change \citep{UCTResources2026}; Redis Streams as the queue; SQLite for development; quote TTL of 900 seconds. Mobile and identification numbers are checked for format only, and generically (8--15 digits; 6--20 characters), because a beneficiary's country and an applicant's nationality are free text: a South-Africa-only rule (\texttt{+27}, a 13-digit ID with checksum) would reject legitimate foreign recipients and passport holders.
+\label{sec:assumptions}
+Assumptions we adopted on purpose: one customer identity for send and receive, so the stored roles are \texttt{customer} and \texttt{admin} rather than the three roles FR-04 names (a person who sends today may receive tomorrow, and a separate recipient account type would force a second registration); admins only via \texttt{scripts/create\_admin.py}; one KYC row with overwrite-on-resubmit until approved; beneficiary auto-match rather than invite-to-register; hybrid treasury plus per-recipient XRPL accounts; issuer address and currency code as \texttt{.env} so UCTUSD versus RLUSD is a config change \citep{UCTResources2026}; Redis Streams as the queue; SQLite for development; quote TTL of 900 seconds. The requirements say RLUSD throughout; the prototype settles in UCTUSD, the course's issued token, and keeps the \texttt{rlusd\_amount} field names so switching to official RLUSD is an environment change. Mobile and identification numbers are checked for format only, and generically (8--15 digits; 6--20 characters), because a beneficiary's country and an applicant's nationality are free text: a South-Africa-only rule (\texttt{+27}, a 13-digit ID with checksum) would reject legitimate foreign recipients and passport holders.
 
 Remaining limitations of \emph{this} fork, not of the old sketch:
 \begin{itemize}
@@ -354,11 +459,11 @@ The HTTP mix delivered 2{,}218 requests, zero failures, about 37~req/s. Authenti
 \newpage
 \section{Web UI}
 \label{sec:ui}
-The marked web application is \texttt{frontend/}: Vite, React, TypeScript, and React Router. It calls the FastAPI JSON API with \texttt{VITE\_API\_URL} (default \url{http://127.0.0.1:8000}). The landing page is a marketing scroll (hero, quote explainer as \texttt{\#faq}, beneficiary/scan/methods, contact as \texttt{\#contact}, footer). Login, register, and the authenticated shells use a DASH-style grid-trail background. Landing motion is GSAP ScrollTrigger plus original Three.js objects---not third-party brand assets.
+The marked web application is \texttt{frontend/}: Vite, React, TypeScript, and React Router. It calls the FastAPI JSON API with \texttt{VITE\_API\_URL} (default \url{http://127.0.0.1:8000}). The landing page is a marketing scroll (hero, quote explainer, beneficiary and tracking sections, a seven-question FAQ as \texttt{\#faq}, an About section as \texttt{\#about} with the course, team and repository, footer). The platform is branded Baobab, with a baobab-tree logo in the navigation bar and as the browser icon. Login, register, and the authenticated shells use a DASH-style grid-trail background. Landing motion is GSAP ScrollTrigger plus original Three.js objects---not third-party brand assets.
 
 Table~\ref{tab:ui} is the shipped screen map. The quote screen shows send amount, locked transaction fee, net ZAR after that fee, FX margin, rate, and UCTUSD. Empty states are implemented, not planned: unverified senders see KYC pending, not a send form; expired quotes show expired and hide cash-in; a recipient without a Testnet account yet still sees a zero spendable wallet row; settlement failure shows the worker reason (for example \texttt{tecPATH\_DRY}) rather than a dummy hash.
 
-Navigation is a sidebar of icon tiles grouped into Account and Admin sections, with the current page highlighted. Two confirmations sit on top of the API's own checks, which stay authoritative: the send form asks the sender to confirm amount and beneficiary before a quote is locked, and an admin who approves or rejects KYC gets a dialog naming the applicant and the outcome, in addition to the inline banner. Status badges use solid fills with one colour per meaning, and \texttt{approved} is deliberately not the colour of \texttt{completed} or \texttt{settled}, because both appear side by side in the cash-out queue. The beneficiaries screen shows the add form and the saved list side by side, so the Linked or Unlinked badge is visible next to the form.
+Navigation is a sidebar of icon tiles grouped into Account and Admin sections, with the current page highlighted. Two confirmations sit on top of the API's own checks, which stay authoritative: the send form asks the sender to confirm amount and beneficiary before a quote is locked, and an admin who approves or rejects KYC gets a dialog naming the applicant and the outcome, in addition to the inline banner. The settlement and cash-out admin screens follow the same pattern: running the worker, retrying a message, and approving, completing or failing a cash-out each ask for confirmation first, stating what the action does and whether it can be undone, then report the outcome in a dialog as well as the banner. A completed cash-out's dialog links its burn hash to the Testnet explorer. Status badges use solid fills with one colour per meaning, and \texttt{approved} is deliberately not the colour of \texttt{completed} or \texttt{settled}, because both appear side by side in the cash-out queue. The beneficiaries screen shows the add form and the saved list side by side, so the Linked or Unlinked badge is visible next to the form. The quote and track screens show a QR code encoding the transfer's track-page URL (the site origin, or \texttt{VITE\_PUBLIC\_URL} when set); scanning it on a phone opens the track page after sign-in, subject to the same sender, linked-recipient or admin check. A phone cannot open \texttt{localhost}, so scanning is tested on the hosted build or with \texttt{VITE\_PUBLIC\_URL} set to the laptop's network address. The sender home screen shows daily and monthly usage as bars (amber from 80\%, red at the limit) beside the remaining allowance. The wallet screen explains that it holds money received in UCTUSD and that sending is paid in rand at cash-in, so a sender who has received nothing sees an empty wallet with a link to start a quote.
 
 \begin{table}[H]
 \centering
@@ -369,9 +474,9 @@ Navigation is a sidebar of icon tiles grouped into Account and Admin sections, w
 \toprule
 \textbf{Screen} & \textbf{Route} & \textbf{Endpoints} \\
 \midrule
-Landing / FAQ / Contact &
-\texttt{/}, \texttt{\#faq}, \texttt{\#contact} &
-static; Contact states course, group, campus, GitHub \\
+Landing / FAQ / About &
+\texttt{/}, \texttt{\#faq}, \texttt{\#about} &
+static; About states the course, team and GitHub \\
 Register / login &
 \texttt{/register}, \texttt{/login} &
 \texttt{POST /auth/register}, \texttt{/login}, \texttt{/logout} \\

@@ -1,0 +1,56 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "fontFamily": "Lato, Helvetica, Arial, sans-serif",
+  "fontSize": "15px",
+  "primaryColor": "#1f4e8c",
+  "primaryTextColor": "#ffffff",
+  "primaryBorderColor": "#163a6b",
+  "lineColor": "#1f3a5f",
+  "clusterBkg": "#ffffff",
+  "clusterBorder": "#b8cde6",
+  "titleColor": "#1f3a5f",
+  "edgeLabelBackground": "#ffffff"
+}, "themeCSS": "* { font-family: Lato, Helvetica, Arial, sans-serif !important; } .edgeLabel, .edgeLabel p, .edgeLabel span { color: #1f3a5f !important; fill: #1f3a5f !important; } .cluster-label span, .cluster-label p { color: #1f3a5f !important; font-weight: 600; }",
+"flowchart": {"curve": "linear", "nodeSpacing": 50, "rankSpacing": 60, "padding": 14}}}%%
+flowchart TB
+    subgraph Users["Users"]
+        S(["Sender"])
+        R(["Recipient"])
+        A(["Admin"])
+    end
+
+    subgraph Platform["Platform"]
+        UI("Web app<br/>React + TypeScript (Vite)<br/>QR codes on track pages")
+        API("Platform API<br/>FastAPI: auth, KYC, beneficiaries,<br/>quotes, wallet, cash-outs, admin")
+        Q[("Redis Streams<br/>settlement_messages")]
+        W("Settlement worker<br/>acks only when done")
+        DB[("SQLite + Alembic<br/>source of truth")]
+    end
+
+    subgraph Rates["Exchange rates"]
+        FX("Exchange-rate API<br/>open.er-api.com<br/>5-min cache, .env fallback")
+    end
+
+    subgraph XRPL["XRPL Testnet"]
+        T("Platform treasury<br/>holds UCTUSD")
+        RC("Recipient custodial accounts<br/>one per linked recipient")
+        I("UCTUSD issuer<br/>course-run")
+    end
+
+    S --> UI
+    R --> UI
+    A --> UI
+    UI -- "HTTPS + JSON,<br/>bearer token" --> API
+    API -- "USD/ZAR rate" --> FX
+    API -- "XADD on<br/>cash-in confirm" --> Q
+    API -- "read / write" --> DB
+    Q -- "XREADGROUP" --> W
+    W -- "hash + credit,<br/>one commit" --> DB
+    W -- "Payment<br/>(xrpl-py)" --> T
+    T -- "UCTUSD settlement" --> RC
+    RC -- "burn on cash-out" --> I
+
+    classDef actor fill:#eef4fb,stroke:#1f4e8c,stroke-width:2px,color:#1f3a5f
+    classDef store fill:#dce8f6,stroke:#1f4e8c,stroke-width:1.5px,color:#1f3a5f
+    class S,R,A actor
+    class Q,DB store
+    style XRPL fill:#eef4fb,stroke:#b8cde6

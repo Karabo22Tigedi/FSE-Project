@@ -1,0 +1,430 @@
+% ============================================================
+%  ECO5040W Group 3 — Business and Technical Specification
+%  Overleaf template. Paste your text where it says PASTE.
+%  Figures: upload them into a folder called "figures" in Overleaf.
+%  A missing figure shows a grey placeholder box instead of an error.
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- Colours (blue theme to match the diagrams) ----------
+\definecolor{navy}{HTML}{1F4E8C}
+\definecolor{ink}{HTML}{1F3A5F}
+\definecolor{headbg}{HTML}{DCE8F6}
+\definecolor{rowbg}{HTML}{F4F8FC}
+
+% ---------- Layout ----------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlist{itemsep=0.2em, topsep=0.3em}
+\renewcommand{\arraystretch}{1.3}
+
+\titleformat{\section}{\Large\bfseries\color{navy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{ink}}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.6em}{0.6em}
+\titlespacing*{\subsection}{0pt}{1.1em}{0.4em}
+
+\captionsetup{font=small, labelfont={bf,color=ink}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{ink} ECO5040W Group 3}
+\fancyhead[R]{\small\color{ink} Business and Technical Specification}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------- Code / formula blocks ----------
+\lstset{basicstyle=\ttfamily\small, columns=fullflexible, frame=single,
+        rulecolor=\color{headbg}, backgroundcolor=\color{rowbg},
+        xleftmargin=1em, xrightmargin=1em, aboveskip=0.8em, belowskip=0.8em}
+
+% ---------- Helpers ----------
+% Inline code, e.g. \code{POST /auth/register}. Write \_ for underscores.
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% Figure that falls back to a placeholder box if the file is missing.
+% Usage: \fig{figures/architecture.pdf}{Caption text}{fig:arch}{0.8}
+\newcommand{\fig}[4]{%
+  \begin{figure}[H]\centering
+    \IfFileExists{#1}{\includegraphics[width=#4\linewidth]{#1}}%
+      {\fcolorbox{headbg}{rowbg}{\parbox[c][6cm][c]{#4\linewidth}{\centering\color{ink}Upload \texttt{\detokenize{#1}}}}}
+    \caption{#2}\label{#3}
+  \end{figure}}
+
+% Functional-requirement table: ID | Requirement | Implemented in
+% Usage:
+%   \begin{frtable}
+%   FR-01 & Requirement text & Implementation text \\
+%   \end{frtable}
+\newenvironment{frtable}{%
+  \rowcolors{2}{white}{rowbg}
+  \begin{longtable}{@{}>{\bfseries}l >{\RaggedRight\arraybackslash}p{5.5cm} >{\RaggedRight\arraybackslash}p{8.4cm}@{}}
+  \toprule
+  \rowcolor{headbg}\textbf{ID} & \textbf{Requirement} & \textbf{Implemented in} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endlastfoot}
+ {\end{longtable}}
+
+% Note under a table
+\newcommand{\tablenote}[1]{{\small\color{ink}\itshape #1\par}}
+
+% ============================================================
+\begin{document}
+
+% ---------- Title page ----------
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Huge\bfseries\color{navy} Baobab\par}
+  \vspace{0.4em}
+  {\Large\itshape\color{ink} Rooted here. Reaching there.\par}
+  \vspace{2em}
+  {\LARGE Business and Technical Specification\par}
+  \vspace{0.6em}
+  {\large ECO5040W Project, Group 3\par}
+  \vspace{3em}
+  {\large Karabo Tigedi \quad Kerry-Lynn Whyte \quad Nikola Milosavljevic\\[0.3em]
+          Annita Ngoma \quad Lilitha Mzamo\par}
+  \vfill
+  {\large University of Cape Town\\ \today\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Business Problem}\label{sec:problem}
+% PASTE: Business problem paragraphs.
+
+% ============================================================
+\section{User Stories}\label{sec:stories}
+
+\subsection{Sender}
+% PASTE: sender user story.
+
+\subsection{Receiver}
+% PASTE: receiver user story.
+
+% ============================================================
+\section{Competitor Comparison}\label{sec:competitors}
+% PASTE: intro paragraph.
+
+\subsection{Conventional money transfer operators}
+% PASTE: intro sentence.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}>{\bfseries}p{2.3cm} *{4}{>{\RaggedRight\arraybackslash}p{3.1cm}}@{}}
+\toprule
+\rowcolor{headbg} & \textbf{MoneyGram} & \textbf{Western Union} & \textbf{Mukuru} & \textbf{WorldRemit} \\
+\midrule
+Channel        & Agent; cash pickup & Agent; cash pickup & Call centre; cash pickup & Online; mobile wallet \\
+Total cost     & 15.43\% & 31.81\% & 10.28\% & 5.15\% \\
+Cost structure & % PASTE
+               & % PASTE
+               & % PASTE
+               & % PASTE
+               \\
+Speed          & Next day & Two days & Same day & Under one hour \\
+Pain points    & % PASTE
+               & % PASTE
+               & % PASTE
+               & % PASTE
+               \\
+\bottomrule
+\end{tabular}
+\caption{Total cost of sending USD 200, South Africa to Zimbabwe. Source: World Bank (2025), Remittance Prices Worldwide, Q3 2025.}
+\label{tab:mto}
+\end{table}
+
+% PASTE: paragraph after the table.
+
+\subsection{VALR Pay}
+% PASTE: VALR intro.
+\begin{itemize}
+  \item \textbf{Access:} % PASTE
+  \item \textbf{Pricing:} % PASTE
+  \item \textbf{Speed:} % PASTE
+  \item \textbf{Pain points:} % PASTE
+\end{itemize}
+% PASTE: VALR / Mukuru paragraph.
+
+\subsection{Wise}
+% PASTE
+
+\subsection{Summary}
+% PASTE (use the corrected cost wording from the checklist).
+
+% ============================================================
+\section{Regulatory Considerations}\label{sec:regulatory}
+% PASTE: intro paragraph.
+
+\subsection{KYC and AML}
+% PASTE
+
+\subsection{Licensing}
+% PASTE
+
+\subsection{Consumer protection}
+% PASTE
+
+\subsection{Custody and safeguarding of customer assets}
+% PASTE
+
+% ============================================================
+\section{User Journey}\label{sec:journey}
+The journey followed by the user can be seen in the sequence diagrams below.
+
+\subsection{Onboarding}
+\fig{figures/journey_onboarding.png}{Register, KYC, beneficiary, quote and cancel.}{fig:onboarding}{0.9}
+
+\subsection{Cash-in and settlement}
+\fig{figures/journey_settlement.png}{Cash-in confirmation and XRPL settlement.}{fig:settlement}{0.9}
+
+\subsection{Wallet and cash-out}
+\fig{figures/journey_cashout.png}{Recipient wallet, cash-out and tracking.}{fig:cashout}{0.9}
+
+% ============================================================
+\section{Functional Requirements}\label{sec:fr}
+
+\subsection{Registration and authentication}
+\begin{frtable}
+FR-01  & % PASTE requirement
+       & % PASTE implemented in
+       \\
+FR-02  & & \\
+FR-02a & & \\
+FR-03  & & \\
+FR-04  & & \\
+FR-04a & & \\
+\end{frtable}
+
+\subsection{KYC}
+\begin{frtable}
+FR-05  & & \\
+FR-06  & & \\
+FR-07  & & \\
+FR-08  & & \\
+FR-08a & & \\
+FR-09  & & \\
+FR-09a & & \\
+\end{frtable}
+\tablenote{% PASTE: note on the FR-09a assumption.
+}
+
+\subsection{Beneficiary management}
+\begin{frtable}
+FR-10  & & \\
+FR-11  & & \\
+FR-12  & & \\
+FR-12a & & \\
+FR-12b & & \\
+FR-12c & & \\
+\end{frtable}
+
+\subsection{Quotes, fees and limits}
+\begin{frtable}
+FR-13  & & \\
+FR-14  & & \\
+FR-15  & & \\
+FR-15a & & \\
+FR-16  & & \\
+FR-16a & & \\
+FR-16b & & \\
+FR-17  & & \\
+\end{frtable}
+
+\subsection{Simulated cash-in}
+\begin{frtable}
+FR-18 & & \\
+FR-19 & & \\
+FR-20 & & \\
+\end{frtable}
+
+\subsection{Queue and settlement}
+\begin{frtable}
+FR-21 & & \\
+FR-22 & & \\
+FR-23 & & \\
+FR-24 & & \\
+FR-25 & & \\
+FR-26 & & \\
+\end{frtable}
+
+\subsection{Recipient wallet and sender history}
+\begin{frtable}
+FR-27  & & \\
+FR-28  & & \\
+FR-28a & & \\
+\end{frtable}
+
+\subsection{Simulated cash-out}
+\begin{frtable}
+FR-29 & & \\
+FR-30 & & \\
+FR-31 & & \\
+FR-32 & & \\
+\end{frtable}
+
+\subsection{Administration}
+\begin{frtable}
+FR-33 & & \\
+FR-34 & & \\
+FR-35 & & \\
+\end{frtable}
+\tablenote{% PASTE: note on FR-15a/FR-16b and features beyond the requirements.
+}
+
+% ============================================================
+\section{Fee Model}\label{sec:fees}
+% PASTE: intro paragraphs (fees, FeeConfig, defaults).
+
+The quote is calculated as follows:
+\begin{align*}
+\text{transaction\_fee} &= \text{fixed\_fee} + \text{zar\_amount} \times \text{percentage\_fee}\\
+\text{effective\_rate}  &= \text{mid\_market} \times (1 + \text{fx\_margin})\\
+\text{net\_zar}         &= \text{zar\_amount} - \text{transaction\_fee}\\
+\text{rlusd}            &= \text{net\_zar} \,/\, \text{effective\_rate}
+\end{align*}
+
+% PASTE: paragraphs after the formulas (margin, rounding).
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\rowcolor{headbg}\textbf{Step (R1,000 at 18.50 fallback)} & \textbf{Value} \\
+\midrule
+Transaction fee            & R35.00 \\
+Effective rate             & 18.87 \\
+Net rand                   & R965.00 \\
+UCTUSD to recipient        & 51.139375 \\
+Estimated cash-out fee     & 0.767091 \\
+Estimated payout (UCTUSD)  & 50.372284 \\
+\bottomrule
+\end{tabular}
+\caption{Worked quote at the default fees.}
+\label{tab:worked}
+\end{table}
+
+% PASTE: cash-out fee paragraph.
+
+% ============================================================
+\section{Exchange-Rate Calculation}\label{sec:fx}
+% PASTE
+
+% ============================================================
+\section{Remittance Limits}\label{sec:limits}
+% PASTE: intro sentence.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\rowcolor{headbg}\textbf{Tier} & \textbf{Daily limit} & \textbf{Monthly limit} \\
+\midrule
+Unverified & R0     & R0 \\
+Verified   & R3,000 & R25,000 \\
+\bottomrule
+\end{tabular}
+\caption{Default limit tiers.}
+\label{tab:tiers}
+\end{table}
+
+% PASTE: paragraphs on what counts toward the cap.
+
+\begin{table}[H]
+\centering\small
+\rowcolors{2}{white}{rowbg}
+\begin{tabular}{@{}>{\ttfamily}l l l@{}}
+\toprule
+\rowcolor{headbg}\textbf{Status} & \textbf{How it gets there} & \textbf{Counts to limit?} \\
+\midrule
+quoted             & \code{POST /remittances}                     & Yes, until expiry \\
+cancelled          & Sender cancels while still unexpired          & No \\
+quoted, after expiry & Clock runs out; cash-in returns 409         & No \\
+cash\_in\_pending  & Sender cash-in                                & Yes \\
+cash\_in\_confirmed & Admin confirms                               & Yes \\
+settlement\_queued & Enqueued after confirm                        & Yes \\
+settled            & Worker Payment and credit                     & Yes \\
+settlement\_failed & Worker error; no credit                       & Yes \\
+\bottomrule
+\end{tabular}
+\caption{Remittance statuses on one evolving row.}
+\label{tab:statuses}
+\end{table}
+
+% ============================================================
+\section{Architecture}\label{sec:architecture}
+\fig{figures/architecture.pdf}{System architecture.}{fig:arch}{0.75}
+% PASTE: architecture prose.
+
+% ============================================================
+\section{Cash-in Flow}\label{sec:cashin}
+% PASTE
+
+% ============================================================
+\section{RLUSD Settlement Flow}\label{sec:settlement}
+% PASTE
+
+% ============================================================
+\section{Cash-out Flow}\label{sec:cashout}
+% PASTE
+
+% ============================================================
+\section{Database Design}\label{sec:database}
+\fig{figures/database.pdf}{Entity-relationship diagram.}{fig:er}{1.0}
+The configuration tables stand alone:
+\fig{figures/database_config.pdf}{Configuration tables.}{fig:config}{0.9}
+% PASTE
+
+% ============================================================
+\section{API Overview}\label{sec:api}
+% PASTE
+
+% ============================================================
+\section{Security Design}\label{sec:security}
+% PASTE
+
+% ============================================================
+\section{Regulatory Considerations in the Prototype}\label{sec:reg-prototype}
+% PASTE
+
+% ============================================================
+\section{Assumptions and Limitations}\label{sec:assumptions}
+% PASTE
+
+% ============================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+\begin{itemize}[leftmargin=1.5em, label={}]
+  \item % PASTE one reference per \item, e.g.
+        World Bank (2025). \emph{Remittance Prices Worldwide}. South Africa to Zimbabwe corridor, Q3 2025.
+\end{itemize}
+
+\end{document}

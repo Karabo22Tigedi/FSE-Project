@@ -1,0 +1,285 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\onehalfspacing
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.3em,topsep=0.35em}
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+
+\title{\vspace{-1.2em}What was wrong in Kerry's specification,\\[0.25em]
+\large and what was changed so it matches the code}
+\author{ECO5040W Group 3}
+\date{27 September 2026}
+
+\begin{document}
+\maketitle
+\vspace{-1.4em}
+
+This note is about \texttt{ECO5040W\_Business\_And\_Tech\_Specification\_kerrys.docx} only.
+It records what was already right, what was false when we first read it, and the wording that replaced the false parts.
+The file still has Kerry's 12 tables and all six figures.
+Nothing in those figures was redrawn.
+
+\section{Are the tables, figures, and claims good?}
+
+The tables are good where they state a number or a rule the code actually uses.
+The competitor percentages were checked and left alone.
+The limit tiers are the brief's R0 / R0 and R3{,}000 / R25{,}000.
+The fee example for R1{,}000 at the fallback rate matches the quote code.
+Several \emph{Implemented in} cells were too neat: they described a stricter or simpler system than the one that runs.
+Those cells were rewritten.
+The requirement column was left as the brief wrote it, except FR-12b and FR-12c, whose texts had been swapped, and FR-19, which now says an administrator confirms cash-in because that is the only route in the code.
+
+The figures are Kerry's, and they are still the right kind of figure: three journey diagrams, an architecture diagram, an entity diagram, and a picture of the configuration tables.
+They were not regenerated.
+One diagram sits under the wrong heading, and the entity diagram is behind the schema.
+Those are noted below and were not ``fixed'' by drawing a new picture.
+
+The claims are good now.
+The sentences that said the prototype was an anti-money-laundering system, enforced the R2~million annual allowance, showed an exact cash-out amount, kept client money in a segregated bank account, or was cheaper than WorldRemit have been replaced.
+What is still rough is draft clutter on the surface of the file (an unfinished heading, a missing space, comments).
+That clutter is not a wrong claim about the system.
+
+\section{Left alone, because it was already right}
+
+\begin{itemize}
+\item The World Bank corridor figures in the opening and in the competitor table: MoneyGram 15.43\%, Western Union 31.81\%, Mukuru 10.28\%, WorldRemit 5.15\%, corridor average 12.49\%.
+\item The default fees: R25 fixed, 1\% of the amount, 2\% exchange-rate margin, 1.5\% cash-out fee, stored as the fractions 0.0100, 0.0200, and 0.0150.
+\item The quote algebra: fee first, then the margin on the mid-market rate, then the token amount.
+\item The limit amounts in the tier table, once the header spelling was corrected.
+\item The six images. Their bytes were checked before and after every save.
+\end{itemize}
+
+\section{Claims that were false}
+
+Each row is the claim as it stood, then the replacement that matches the code.
+
+\begin{description}[leftmargin=0pt,style=nextline,font=\normalfont\bfseries]
+
+\item[Cheaper than the digital providers.]
+The closing paragraph of the comparison said the platform targets a total cost below the digital providers by settling in a stablecoin.
+At the default fees that is not true, and it is not under the 3\% target.
+The paragraph now states the R25 fee, the 1\%, the 2\% margin, and the estimated 1.5\% cash-out fee, and it says that combination is not below those providers and not under 3\%.
+The WorldRemit and incumbent percentages in the same paragraph were not touched.
+
+\item[Anti-money-laundering controls.]
+The regulatory section said the KYC process and the daily and monthly limits are the transaction controls a monitored service requires.
+The prototype collects mock KYC, blocks sending and cashing out until an administrator approves, and enforces rand caps.
+Those caps are not a monitoring or reporting engine.
+The section now says that.
+
+\item[The R2 million allowance.]
+The text said the platform treats RLUSD transfers like any other transfer and applies the same limits, after describing the Reserve Bank's annual allowance.
+The prototype does not enforce that allowance.
+It enforces configurable daily and monthly caps, R3{,}000 and R25{,}000 for a verified sender.
+The sentence now says a live dealer would have to apply the annual allowance, and this prototype does not.
+
+\item[The exact amount the recipient will receive.]
+Senders were said to see the exact amount before they confirm.
+The quote's cash-out fee and payout are estimates.
+Cash-out recalculates them later.
+The sentence now says ``estimate'', and that the payout is recalculated when the recipient cashes out.
+
+\item[Client money kept apart from the business.]
+Balances were said to be recorded separately so a customer's holding is never mixed with the money the business uses to operate.
+Spendable balance is an internal ledger.
+One platform treasury pays the recipient's custodial account, and the platform holds that key.
+Cash-in and fiat payout are simulated.
+There is no separate bank account for client money.
+The paragraph now says that.
+
+\item[Private keys decrypted only by the signer.]
+Both the custody paragraph and the security section said the secret is decrypted only by the code that signs.
+At the time, loading the wallet row decrypted it.
+The code was then changed: the row loads ciphertext, and the seed is decrypted only when settlement, cash-out completion, or a TrustSet is about to sign.
+The specification was updated a second time to that behaviour.
+Wallet responses still omit the secret.
+The KYC identification number is still decrypted when the KYC record is read, which is intentional.
+
+\item[Rounding.]
+``Fees are rounded to the nearest cent and token amounts to six decimal places'' was too coarse.
+The rand transaction fee and the fiat payout use two decimal places.
+The cash-out fee and the token amounts use six, halves rounded up.
+A worked R1{,}000 at the 18.50 fallback was added and checked: fee R35.00, effective rate 18.87, net R965.00, 51.139375 tokens, estimated cash-out fee 0.767091, estimated payout 50.372284 tokens, not rand.
+
+\item[Who the limits apply to, and what R0 does.]
+The line ``whether is verified or unverified'' was incomplete, and the next sentence said the zero limits exist so unverified users cannot send.
+Sending is blocked earlier: \texttt{POST /remittances} returns 403 until KYC is approved, so an unverified sender never reaches the R0 check.
+R0 is the configured tier shown on \texttt{GET /limits/me}.
+
+\item[What counts toward the cap.]
+Usage was easy to read as ``everything until the day or month ends''.
+The code sums gross \texttt{zar\_amount}.
+A quote is refused only when usage plus the new amount is strictly greater than the cap, so a send that lands on the cap is allowed.
+Cancel and expiry release the amount before the period ends.
+\texttt{settlement\_failed} still counts.
+Two quotes sent together are not locked, so both can pass.
+The limits section now says each of those.
+
+\end{description}
+
+\section{Tables}
+
+\subsection{Headers and one status that was not a status}
+
+\begin{itemize}
+\item The limit table header said ``Status'' and ``Montly limit''.
+It now says Tier, Daily limit, Monthly limit.
+The two rows were already the right amounts.
+\item The status table had a row ``quoted (past TTL)''.
+That is not a stored status.
+The row remains \texttt{quoted}.
+The cell now says ``quoted, after expiry'', and the next cell says cash-in returns 409 once \texttt{expires\_at} has passed and the amount no longer counts.
+\end{itemize}
+
+\subsection{FR-12b and FR-12c were swapped}
+
+The course brief's FR-12b is ``provision a custodial wallet only once the beneficiary is linked''.
+FR-12c is ``if nobody matches, leave the beneficiary unlinked and do not settle''.
+Kerry's table had those two requirement texts the other way around.
+The requirement text and the implementation text were swapped together so the identifiers match the brief.
+
+The implementation text was then made specific.
+FR-12b: a wallet row is created when the beneficiary is linked; the Testnet account is created at the first settlement, and only for that linked user.
+FR-12c: the record stays unlinked; if cash-in is confirmed anyway, the worker refuses, credits nothing, and marks the transfer \texttt{settlement\_failed}.
+
+\subsection{Implemented-in cells that oversimplified the code}
+
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{1.35cm}>{\raggedright\arraybackslash}p{6.3cm}>{\raggedright\arraybackslash}p{7.1cm}@{}}
+\toprule
+ID & What the cell used to imply & What it says now \\
+\midrule
+\endfirsthead
+\toprule
+ID & What the cell used to imply & What it says now \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+FR-06 &
+Resubmission overwrites the application until it is approved. &
+The API overwrites a pending or rejected application and returns 409 once it is approved.
+The screen locks the form while it is pending. \\
+FR-08 &
+Reject ``with a reason'', as if the API required one. &
+The API returns 422 if the reason is missing or blank.
+The admin screen asks for one before sending.
+The code was changed so this is true. \\
+FR-09 &
+The send screen shows ``KYC pending''. &
+The heading is ``KYC not approved'', with a line for pending, rejected, or not submitted.
+The API returns 403. \\
+FR-10 &
+All five beneficiary fields are stored, with no caveat. &
+\texttt{payout\_currency} is stored and shown.
+Quotes do not use it. \\
+FR-12a &
+Auto-match on add and on register. &
+Mobile or email is enough.
+The first matching account wins.
+Editing the profile does not relink.
+Email matching is case-insensitive; account email uniqueness is case-sensitive. \\
+FR-16 &
+Checked before insert; cancelled and expired quotes do not count. &
+Checked on gross rand.
+Refused only when usage plus the amount is strictly over the cap.
+Two simultaneous quotes are not row-locked. \\
+FR-19 &
+The requirement said an administrator or a mock service. &
+The requirement now says an administrator confirms the payment.
+The implementation cell says there is no mock payment-provider route.
+The brief's ``or'' is satisfied by the administrator. \\
+FR-22 &
+A worker reads the stream, which could be read as a process that stays up. &
+The script or the admin action drains the stream once.
+It does not stay running between calls. \\
+FR-25 &
+A duplicate message cannot credit twice, full stop. &
+One message per remittance, a stored hash is not paid again, and a completed retry returns 409.
+Before submitting, the worker looks up a validated payment whose memo is this remittance and adopts that hash.
+Two overlapping runs can still both miss the lookup and pay twice. \\
+FR-26 &
+One commit after validation, with no mention of a crash. &
+The commit stores the hash, credits the balance, and sets settled.
+If the process dies before that commit, the next run adopts the payment by its memo and then credits the wallet. \\
+FR-28 &
+``Spendable and on-chain balances'', as if the on-chain figure were read from the ledger. &
+The on-chain figure is spendable plus requested or approved cash-out amounts.
+It is not a live trust-line read. \\
+FR-28a &
+The history page shows the quote breakdown, timeline, hash, and QR code. &
+The history page lists amount, status, and tracking reference.
+The breakdown, timeline, hash, and QR code are on the track page and the quote page. \\
+FR-32 &
+Complete burns the reserved tokens; fail refunds spendable. &
+Complete burns the gross reserved amount.
+The fiat payout is the net after the fee and is not paid by a bank.
+Fail refunds that gross amount to the cash-out user. \\
+FR-35 &
+The admin screen approves, completes, or fails a cash-out. &
+The same, plus: fail refunds the cash-out user, the recipient, not the remittance sender.
+The admin screen's own sentence was wrong in the same way and was corrected in the code. \\
+\bottomrule
+\end{longtable}
+}
+
+\section{Figures}
+
+The six images are still \texttt{image1.png} through \texttt{image6.png}.
+
+\begin{itemize}
+\item \texttt{image1} is the register, KYC, beneficiary, quote, and cancel sequence.
+\item \texttt{image3} is cash-in and settlement.
+\item \texttt{image2} is wallet, cash-out, and tracking.
+It is also placed under Onboarding, which is the wrong heading for that picture.
+Moving it would have meant editing the drawing anchors.
+It was left where Kerry put it.
+\item \texttt{image4} is the architecture diagram.
+The prose under it was empty and was filled.
+One sentence was added later: the prototype uses both wallet options in the brief, a separate Testnet account per linked recipient and an internal spendable ledger, and the on-chain figure is not a live trust-line balance.
+\item \texttt{image5} is the entity diagram.
+It does not show the platform wallet, the fee row, or the limit tiers, and its KYC status list is behind the code.
+It was not redrawn.
+The database section next to it names those tables and the three Alembic revisions.
+\item \texttt{image6} is the configuration tables, including the fee defaults 25.00, 0.0100, 0.0200, and 0.0150.
+Those match the code.
+\end{itemize}
+
+No figure was replaced, and no new diagram was generated.
+
+\section{Code that the document had to follow}
+
+Two small code changes were made because the document would otherwise have stayed wrong, or the code would have stayed looser than the brief.
+
+\begin{itemize}
+\item Rejecting a KYC application now requires a non-empty reason.
+A missing or blank reason returns 422.
+The FR-08 cell describes that.
+\item The admin cash-out page said failing a cash-out refunds the sender.
+It refunds the cash-out user.
+The page and the FR-35 cell now say that.
+\end{itemize}
+
+A larger code change followed the FR-25 hole.
+The worker now looks up an existing validated payment by the remittance memo before it submits another one.
+The FR-25 cell, the settlement paragraph, the assumptions paragraph, and the FR-26 cell were updated to that behaviour, including the remaining case: two overlapping worker runs can still both pay.
+
+Wallet secrets were changed in the same pass.
+They load as ciphertext and are decrypted only at the signing call.
+The two security sentences were updated so they no longer describe the old decrypt-on-load behaviour, and they do not claim the stricter rule until the code had it.
+
+\end{document}

@@ -65,31 +65,12 @@ const FAQS = [
     a: "No. This is a university prototype. Cash-in and cash-out are simulated, and settlement runs on the XRP Ledger Testnet.",
   },
 ] as const
-const CONTACT_TILES = [
+const TEAM = [
   "Annita Ngoma",
   "Karabo Tigedi",
   "Kerry-Lynn Whyte",
   "Liltha Mzamo",
   "Nikola Milosavljevic",
-] as const
-const CONTACT_FACTS = [
-  {
-    label: "Course",
-    body: "ECO5040W · Financial Software Engineering · University of Cape Town",
-  },
-  {
-    label: "Prototype",
-    body: "XRPL Remit · simulated ZAR rails · UCTUSD on Testnet · no live customer funds",
-  },
-  {
-    label: "Campus",
-    body: "School of Economics · Rondebosch, Cape Town",
-  },
-  {
-    label: "Source",
-    body: "github.com/kerryw33/FSE-Project",
-    href: "https://github.com/kerryw33/FSE-Project",
-  },
 ] as const
 
 function splitWords(words: readonly string[]) {
@@ -309,7 +290,7 @@ export function Landing() {
     document.getElementById(id)?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" })
   }, [fontsReady, hash, heroReady])
 
-  const contactTiles = [...CONTACT_TILES, ...CONTACT_TILES, ...CONTACT_TILES]
+  const teamTiles = [...TEAM, ...TEAM, ...TEAM]
 
   return (
     <div className="landing-page" ref={rootRef}>
@@ -436,31 +417,32 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="payment" id="contact">
+      <section className="payment" id="about">
         <div className="payment__wrapper">
-          <h1 className="payment__heading">Contact</h1>
+          <h1 className="payment__heading">About</h1>
           <div className="payment__text">
-            University of Cape Town · ECO5040W Group 3. Academic remittance prototype — no
-            customer inbox, no Visa, no live funds.
+            We built Baobab to show how money could move home more cheaply and openly. A sender in
+            South Africa pays in rand and sees every fee before paying; the recipient receives the
+            value as a stablecoin on the XRP Ledger, and both can track it from start to finish.
           </div>
-          <div className="contact-facts">
-            {CONTACT_FACTS.map((fact) => (
-              <article key={fact.label} className="contact-facts__item">
-                <h2>{fact.label}</h2>
-                {"href" in fact ? (
-                  <a href={fact.href} target="_blank" rel="noreferrer">
-                    {fact.body}
-                  </a>
-                ) : (
-                  <p>{fact.body}</p>
-                )}
-              </article>
-            ))}
+          <div className="payment__text">
+            It is a student project for ECO5040W (Financial Software Engineering) at the University
+            of Cape Town. Cash-in and cash-out are simulated and settlement runs on the XRPL
+            Testnet, so no real money moves.
           </div>
+          <p className="about__team">Built by {TEAM.slice(0, -1).join(", ")} and {TEAM.at(-1)}.</p>
+          <a
+            className="about__source"
+            href="https://github.com/kerryw33/FSE-Project"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/kerryw33/FSE-Project
+          </a>
         </div>
         <div className="payment__methods">
           <div className="payment__track">
-            {contactTiles.map((label, index) => (
+            {teamTiles.map((label, index) => (
               <div key={`${label}-${index}`} className="payment__tile">
                 <span className="payment__tile-label">{label}</span>
               </div>
@@ -483,8 +465,8 @@ export function Landing() {
             </Link>
           </div>
           <div className="footer__bottom">
-            <div className="footer__powered">UCT ECO5040W · no real customer funds · Testnet only</div>
-            <div className="footer__copyright">Group 3 · XRPL Remit</div>
+            <div className="footer__powered">UCT ECO5040W Group 3 · no real customer funds · Testnet only</div>
+            <div className="footer__copyright">Baobab · Rooted here. Reaching there.</div>
           </div>
         </div>
       </footer>

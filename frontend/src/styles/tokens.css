@@ -105,8 +105,17 @@ textarea {
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
-  width: 3.5rem;
+  min-width: 3.5rem;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.nav__logo-mark {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
 }
 
 .nav--on-light .nav__logo,

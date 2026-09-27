@@ -14,7 +14,7 @@ export function TrackingQr({ className }: { className?: string }) {
     <QrCode
       className={className}
       value={publicUrl("/app")}
-      label="QR code that opens the XRPL Remit app"
+      label="QR code that opens the Baobab app"
     />
   )
 }

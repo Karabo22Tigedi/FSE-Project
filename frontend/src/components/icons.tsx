@@ -149,3 +149,21 @@ export function PlatformWalletIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   )
 }
+
+export function BaobabLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" {...props}>
+      <path d="M20.5 58 C16.5 47 18 37.5 25.5 30.5 L38.5 30.5 C46 37.5 47.5 47 43.5 58 Z" fill="currentColor"/>
+      <path d="M27 32 C24 26.5 20.5 23 14 20 M30.5 31 C29.5 25 27.5 20 26 15.5 M33.5 31 C34.5 25 36.5 20 38 15.5 M37 32 C40 26.5 43.5 23 50 20" stroke="currentColor" strokeWidth="4.2" strokeLinecap="round" fill="none"/>
+      <path d="M14 20 L8.5 18.5 M14 20 L12.5 14.5 M50 20 L55.5 18.5 M50 20 L51.5 14.5 M26 15.5 L21.5 12 M38 15.5 L42.5 12" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
+      <ellipse cx="8" cy="16.5" rx="5.5" ry="2.6" fill="currentColor"/>
+      <ellipse cx="14.5" cy="12" rx="5" ry="2.4" fill="currentColor"/>
+      <ellipse cx="23" cy="10" rx="5.2" ry="2.5" fill="currentColor"/>
+      <ellipse cx="32" cy="12.5" rx="4.2" ry="2.2" fill="currentColor"/>
+      <ellipse cx="41" cy="10" rx="5.2" ry="2.5" fill="currentColor"/>
+      <ellipse cx="49.5" cy="12" rx="5" ry="2.4" fill="currentColor"/>
+      <ellipse cx="56" cy="16.5" rx="5.5" ry="2.6" fill="currentColor"/>
+      <path d="M13 59.5 H51" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"/>
+    </svg>
+  )
+}

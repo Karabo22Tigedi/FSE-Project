@@ -99,13 +99,13 @@ function makeIosScreenMap(): THREE.CanvasTexture {
   ctx.textAlign = "left"
   ctx.fillStyle = "rgba(255,255,255,0.7)"
   ctx.font = "500 22px Poppins, system-ui, sans-serif"
-  ctx.fillText("XRPL Remit", cardX + 28, cardY + 48)
+  ctx.fillText("Baobab", cardX + 28, cardY + 48)
   ctx.fillStyle = "#ffffff"
   ctx.font = "600 44px Poppins, system-ui, sans-serif"
   ctx.fillText("R 500", cardX + 28, cardY + 112)
   ctx.fillStyle = "#3de0c4"
   ctx.font = "500 26px Poppins, system-ui, sans-serif"
-  ctx.fillText("28.88 RLUSD on Testnet", cardX + 28, cardY + 162)
+  ctx.fillText("24.91 UCTUSD on Testnet", cardX + 28, cardY + 162)
 
   const dockY = height - 150
   const colors = ["#2c71f6", "#3de0c4", "#f1f1f1", "#e8c872"]

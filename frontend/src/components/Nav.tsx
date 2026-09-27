@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../auth/useAuth"
+import { BaobabLogo } from "./icons"
 
 export function Nav() {
   const { user, logout } = useAuth()
@@ -8,15 +9,16 @@ export function Nav() {
 
   return (
     <header className="nav">
-      <Link to="/" className="nav__logo">
-        group 3
+      <Link to="/" className="nav__logo" aria-label="Baobab home">
+        <BaobabLogo className="nav__logo-mark" />
+        Baobab
       </Link>
       <nav className="nav__menu">
         <a className="nav__link" href={landing ? "#faq" : "/#faq"}>
           FAQ
         </a>
-        <a className="nav__link" href={landing ? "#contact" : "/#contact"}>
-          Contact
+        <a className="nav__link" href={landing ? "#about" : "/#about"}>
+          About
         </a>
         {user ? (
           <>

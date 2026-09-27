@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.crypto import EncryptedString
+from app.core.crypto import EncryptedXrplSecret
 from app.database import Base
 
 
@@ -22,8 +22,9 @@ class PlatformWallet(Base):
     TrustLine is live.
 
     The secret is encrypted with a key distinct from the KYC encryption
-    key (NFR-04/NFR-05) and is only ever decrypted by the signing
-    component - never logged, never returned via the API.
+    key (NFR-04/NFR-05). The column loads as ciphertext; callers decrypt
+    with decrypt_xrpl_secret immediately before signing. The plaintext is
+    never logged and never returned via the API.
     """
 
     __tablename__ = "platform_wallet"
@@ -31,7 +32,7 @@ class PlatformWallet(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     classic_address: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     secret: Mapped[str] = mapped_column(
-        EncryptedString(500, key_field="xrpl_key_encryption_key"), nullable=False
+        EncryptedXrplSecret(500), nullable=False
     )
     network: Mapped[str] = mapped_column(String(32), nullable=False, default="testnet")
     trustline_established: Mapped[bool] = mapped_column(default=False, nullable=False)

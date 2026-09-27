@@ -4,6 +4,7 @@ import redis
 from sqlalchemy.orm import Session as DBSession
 
 from app.config import get_settings
+from app.core.crypto import decrypt_xrpl_secret
 from app.core.money import to_decimal
 from app.models.remittance import Remittance, RemittanceStatus
 from app.models.settlement import SettlementMessage, SettlementMessageStatus
@@ -198,7 +199,7 @@ def process_settlement_message(db: DBSession, message: SettlementMessage) -> Set
             return _mark_completed_from_existing_hash(db, message)
 
         tx_hash = submit_issued_currency_payment(
-            platform_wallet_row.secret,
+            decrypt_xrpl_secret(platform_wallet_row.secret),
             recipient_wallet_row.xrpl_address,
             remittance.rlusd_amount,
             remittance.id,

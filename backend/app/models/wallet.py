@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.crypto import EncryptedString
+from app.core.crypto import EncryptedXrplSecret
 from app.database import Base
 
 
@@ -39,7 +39,7 @@ class RecipientWallet(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), unique=True, nullable=False)
     xrpl_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     secret: Mapped[str | None] = mapped_column(
-        EncryptedString(500, key_field="xrpl_key_encryption_key"), nullable=True
+        EncryptedXrplSecret(500), nullable=True
     )
     trustline_established: Mapped[bool] = mapped_column(default=False, nullable=False)
     balance: Mapped[Decimal] = mapped_column(Numeric(14, 6), default=Decimal("0"), nullable=False)

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from sqlalchemy.orm import Session as DBSession
 from xrpl.wallet import Wallet
 
+from app.core.crypto import decrypt_xrpl_secret
 from app.models.wallet import RecipientWallet
 from app.services.xrpl_provisioning import establish_trustline, generate_and_fund_wallet
 
@@ -28,7 +29,7 @@ def _wallet_from_persisted(wallet_row: RecipientWallet):
     XRPL seeds, so fall back to a duck-typed object that still exposes
     classic_address/seed for the mocked establish_trustline.
     """
-    seed = wallet_row.secret
+    seed = decrypt_xrpl_secret(wallet_row.secret)
     if not seed:
         raise RuntimeError("Recipient wallet has an XRPL address but no secret")
     try:

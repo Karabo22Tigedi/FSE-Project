@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.core.crypto import decrypt_xrpl_secret
 from app.models.user import User
 from app.models.wallet import RecipientWallet
 from app.services.recipient_wallet import ensure_xrpl_account, get_or_create_wallet_row
@@ -36,7 +37,7 @@ def test_ensure_xrpl_account_does_not_regenerate_after_trustset_failure(register
         db.expire_all()
         persisted = db.query(RecipientWallet).filter(RecipientWallet.user_id == user.id).first()
         assert persisted.xrpl_address == "rSTABLEADDRESS000000000000000000"
-        assert persisted.secret == "sSTABLESEED"
+        assert decrypt_xrpl_secret(persisted.secret) == "sSTABLESEED"
         assert persisted.trustline_established is False
 
         monkeypatch.setattr(

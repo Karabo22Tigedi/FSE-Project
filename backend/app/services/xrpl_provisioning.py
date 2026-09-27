@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from xrpl.models.amounts import IssuedCurrencyAmount
-from xrpl.models.requests import AccountLines
+from xrpl.models.requests import AccountLines, AccountTx
 from xrpl.models.transactions import Memo, Payment, TrustSet
 from xrpl.transaction import submit_and_wait
 from xrpl.wallet import Wallet, generate_faucet_wallet
@@ -80,6 +80,48 @@ def _payment_memos(remittance_id: str | None) -> list[Memo] | None:
     ]
 
 
+def find_validated_payment_hash(account: str, correlation_id: str) -> str | None:
+    """FR-25: return the hash of a tesSUCCESS Payment on `account` whose
+    remittance_id memo matches `correlation_id`, or None if none found.
+
+    Paginates account_tx (limit 200, at most 20 pages). Does not catch
+    errors — a failed lookup must raise so the caller does not pay blind.
+    """
+    expected_type = "remittance_id".encode().hex().upper()
+    expected_data = correlation_id.encode("utf-8").hex().upper()
+    client = get_xrpl_client()
+    marker = None
+    for _ in range(20):
+        request_kwargs: dict = {"account": account, "limit": 200}
+        if marker is not None:
+            request_kwargs["marker"] = marker
+        result = client.request(AccountTx(**request_kwargs)).result
+        for entry in result.get("transactions") or []:
+            tx = entry.get("tx") or entry.get("tx_json") or {}
+            if tx.get("TransactionType") != "Payment":
+                continue
+            meta = entry.get("meta")
+            if not isinstance(meta, dict) or meta.get("TransactionResult") != "tesSUCCESS":
+                continue
+            for memo_wrapper in tx.get("Memos") or []:
+                if isinstance(memo_wrapper, dict) and "Memo" in memo_wrapper:
+                    memo = memo_wrapper["Memo"]
+                else:
+                    memo = memo_wrapper
+                if not isinstance(memo, dict):
+                    continue
+                memo_type = str(memo.get("MemoType") or "").upper()
+                memo_data = str(memo.get("MemoData") or "").upper()
+                if memo_type == expected_type and memo_data == expected_data:
+                    found = entry.get("hash") or tx.get("hash")
+                    if found:
+                        return found
+        marker = result.get("marker")
+        if marker is None:
+            break
+    return None
+
+
 def submit_issued_currency_payment(
     from_seed: str,
     destination_address: str,
@@ -97,6 +139,10 @@ def submit_issued_currency_payment(
     correlated with the remittance it settles. It is optional so older
     call sites and tests keep working.
 
+    FR-25: if `remittance_id` is set, look up an already-validated Payment
+    with that memo on the sender account and return its hash instead of
+    submitting again.
+
     Returns the transaction hash. Raises RuntimeError if the ledger
     reports anything other than tesSUCCESS - e.g. tecUNFUNDED_PAYMENT if
     the sender lacks sufficient token balance, or tecNO_LINE if the
@@ -105,6 +151,11 @@ def submit_issued_currency_payment(
     settings = get_settings()
     client = get_xrpl_client()
     wallet = Wallet.from_seed(from_seed)
+
+    if remittance_id:
+        existing = find_validated_payment_hash(wallet.classic_address, remittance_id)
+        if existing:
+            return existing
 
     payment_kwargs = dict(
         account=wallet.classic_address,

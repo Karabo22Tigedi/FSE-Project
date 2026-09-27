@@ -48,3 +48,40 @@ class EncryptedString(TypeDecorator):
                 f"Failed to decrypt column using {self.key_field}: invalid token "
                 "(wrong key or corrupted ciphertext)"
             ) from exc
+
+
+class EncryptedXrplSecret(TypeDecorator):
+    """Encrypts an XRPL secret at rest (NFR-05) without decrypting on load.
+
+    Writes are Fernet-encrypted with `xrpl_key_encryption_key`. Reads return
+    the stored ciphertext unchanged; callers must use `decrypt_xrpl_secret`
+    immediately before signing.
+    """
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        # A loaded row holds ciphertext. Encrypting that again would make
+        # the next decrypt fail, so a value that already decrypts is stored as-is.
+        try:
+            _fernet("xrpl_key_encryption_key").decrypt(value.encode())
+        except InvalidToken:
+            return _fernet("xrpl_key_encryption_key").encrypt(value.encode()).decode()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return value
+
+
+def decrypt_xrpl_secret(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        return _fernet("xrpl_key_encryption_key").decrypt(value.encode()).decode()
+    except InvalidToken as exc:
+        raise RuntimeError("Failed to decrypt XRPL secret: invalid token") from exc

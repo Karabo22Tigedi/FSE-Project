@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session as DBSession
 from xrpl.account import get_balance
 
+from app.core.crypto import decrypt_xrpl_secret
 from app.models.platform_wallet import PlatformWallet
 from app.services.xrpl_client import get_xrpl_client
 from app.services.xrpl_provisioning import (
@@ -50,7 +51,7 @@ def establish_trustline(db: DBSession, wallet_row: PlatformWallet) -> str:
     """
     from xrpl.wallet import Wallet
 
-    wallet = Wallet.from_seed(wallet_row.secret)
+    wallet = Wallet.from_seed(decrypt_xrpl_secret(wallet_row.secret))
     tx_hash = _establish_trustline(wallet)
 
     wallet_row.trustline_established = True

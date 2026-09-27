@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
 from app.config import get_settings
+from app.core.crypto import decrypt_xrpl_secret
 from app.core.deps import get_current_user, require_admin, require_approved_kyc
 from app.core.money import to_decimal
 from app.database import get_db
@@ -146,7 +147,7 @@ def complete_cash_out(cash_out_id: str, admin: User = Depends(require_admin), db
     if not cash_out.xrpl_burn_tx_hash:
         try:
             tx_hash = submit_issued_currency_payment(
-                wallet_row.secret,
+                decrypt_xrpl_secret(wallet_row.secret),
                 get_settings().xrpl_issuer_address,
                 cash_out.rlusd_amount,
                 remittance_id=cash_out.id,

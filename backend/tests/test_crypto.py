@@ -1,7 +1,7 @@
 import pytest
 from cryptography.fernet import Fernet
 
-from app.core.crypto import EncryptedString
+from app.core.crypto import EncryptedString, EncryptedXrplSecret, decrypt_xrpl_secret
 
 
 def test_encrypted_string_invalid_ciphertext_raises():
@@ -20,3 +20,13 @@ def test_encrypted_string_roundtrip():
     wrong = Fernet(other.encode()).encrypt(b"secret-value").decode()
     with pytest.raises(RuntimeError, match="invalid token"):
         col.process_result_value(wrong, None)
+
+
+def test_encrypted_xrpl_secret_roundtrip():
+    col = EncryptedXrplSecret(500)
+    stored = col.process_bind_param("sSEED", None)
+    assert stored != "sSEED"
+    assert col.process_result_value(stored, None) == stored
+    assert decrypt_xrpl_secret(stored) == "sSEED"
+    # Loading leaves ciphertext on the object. Saving that value must not encrypt it again.
+    assert col.process_bind_param(stored, None) == stored

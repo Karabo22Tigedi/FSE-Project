@@ -1,0 +1,8 @@
+== Message queue throughput (200 enqueue operations) ==
+Message-queue enqueue: 200 messages in 1.829s (109.4 msg/s)
+
+== RLUSD settlement processing time (1 real XRPL Testnet transactions) ==
+Settlement processing: 1 real XRPL transactions in 0.553s
+  avg per transaction: 0.553s
+  completed: 0, failed: 1
+    failed: d1698285-10bf-471d-a355-58edf0acd9d8 - Insufficient UCTUSD liquidity on platform wallet rUPdCpw4Jg8rWqXQow2XqMY7V4yo7FxcCE: current balance 0, required 1.472423. Send this address to Marc / the UCTUSD distributor (rsWPX7FKwnfk6enosumAzEuTs5Y12Steq4) for the 100,000 UCTUSD grant.

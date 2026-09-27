@@ -85,7 +85,19 @@ The script then printed `Skipping live XRPL settlement (--enqueue-only).` This s
 - An earlier 60 s attempt used the sketch locust mix (R10–R100). About 18% of `POST /remittances` returned 422 because the default R25 fee consumed the principal — a correctness guard on this fork, not an overload failure. The locustfile now uses R100–R500; that mix is what §1 reports.
 - Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5, and the 2026-09-24 sample (§2a) was **15/15**. Those are small Testnet samples without a saved log; they do not prove reliability. The 2026-09-27 saved log (§2b) is enqueue-only (no Testnet payment).
 - Not load-tested: concurrent settlement (the worker handles one message at a time) and concurrent quotes from a single sender (the limits race noted in the specification's limitations). Concurrency in §1 is 50 simultaneous HTTP users.
-- Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **132** pytest tests.
+- Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **138** pytest tests, and that full run passed on 27 September 2026.
+
+## 4. Re-run on 27 September 2026
+
+Same commands, on this Linux host, against a throwaway SQLite file and local Redis. The 7 September tables above are unchanged.
+
+**Pytest:** `python -m pytest -q` — **138 passed**, 2 warnings, 1 minute 46 seconds.
+
+**HTTP load test:** 50 users, spawn 10/s, 60 seconds. Saved output is under `backend/perf/results/run3_20260927/` (CSV, HTML, and charts). The CSV records **2,330 requests, 0 failures**, about **39.5 req/s**. The slowest request was login at **635 ms**. Quote creation median was 13 ms. Every endpoint in the saved CSV is inside the 2 second limit. The Locust shutdown line printed 2,362 requests with the same zero failures and the same 635 ms maximum; the CSV is the file to cite.
+
+**Queue:** `benchmark_settlement --enqueue-only` printed `200 messages in 1.606s (124.5 msg/s)`. A second enqueue inside the live attempt printed `200 messages in 1.829s (109.4 msg/s)`. Stdout is in `benchmark_enqueue_2026-09-27_rerun.txt`. This is still enqueue rate, not worker throughput.
+
+**Live settlement:** a new Testnet account was created and its TrustLine was set (`893711DC776316FE207A173E2CC5CD5B084788151ACFD58151B818172A4336DC`). Its UCTUSD balance was 0, so the one payment the script attempted failed in 0.553 s with insufficient liquidity and never reached the ledger. That is not a processing-time measurement. The earlier 15-payment sample is still the only settlement timing, and it still has no saved log. Stdout: `benchmark_settlement_attempt_2026-09-27.txt`. The address `rUPdCpw4Jg8rWqXQow2XqMY7V4yo7FxcCE` needs UCTUSD from the distributor before a live timing run can succeed.
 
 ## How to reproduce (Windows)
 

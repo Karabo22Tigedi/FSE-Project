@@ -126,10 +126,10 @@ export const api = {
 
   approveKyc: (id: string) => request<KycOut>(`/kyc/${id}/approve`, { method: "POST" }),
 
-  rejectKyc: (id: string, rejection_reason?: string) =>
+  rejectKyc: (id: string, rejection_reason: string) =>
     request<KycOut>(`/kyc/${id}/reject`, {
       method: "POST",
-      body: JSON.stringify({ rejection_reason: rejection_reason ?? null }),
+      body: JSON.stringify({ rejection_reason }),
     }),
 
   limits: () => request<LimitStatus>("/limits/me"),

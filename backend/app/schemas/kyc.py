@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.kyc import KYCStatus
 from app.schemas.base import SchemaModel
@@ -47,4 +47,12 @@ class KYCOut(SchemaModel):
 
 
 class KYCReview(BaseModel):
-    rejection_reason: str | None = Field(default=None, max_length=1000)
+    rejection_reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("rejection_reason")
+    @classmethod
+    def reason_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("A rejection reason is required")
+        return stripped

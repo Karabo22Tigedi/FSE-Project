@@ -70,6 +70,19 @@ def test_admin_can_approve_pending_application(client, register_and_login, admin
     assert status_resp.json()["status"] == "approved"
 
 
+def test_reject_requires_a_non_empty_reason(client, register_and_login, admin_headers):
+    headers = register_and_login()
+    submit_resp = client.post("/kyc", json=VALID_KYC, headers=headers)
+    app_id = submit_resp.json()["id"]
+
+    missing = client.post(f"/kyc/{app_id}/reject", json={}, headers=admin_headers)
+    blank = client.post(
+        f"/kyc/{app_id}/reject", json={"rejection_reason": "   "}, headers=admin_headers
+    )
+    assert missing.status_code == 422
+    assert blank.status_code == 422
+
+
 def test_admin_can_reject_pending_application_with_reason(client, register_and_login, admin_headers):
     headers = register_and_login()
     submit_resp = client.post("/kyc", json=VALID_KYC, headers=headers)

@@ -73,7 +73,7 @@ export function CashOutQueue() {
       <p className="page-lead">
         {user ? `${user.full_name}. ` : null}
         Approve or fail a requested cash-out, then complete or fail it once it's approved.
-        Completing burns UCTUSD by paying the issuer — failing refunds the sender's spendable
+        Completing burns UCTUSD by paying the issuer — failing refunds the cash-out user's spendable
         balance.
       </p>
       {error ? <p className="banner banner--error">{error}</p> : null}

@@ -33,9 +33,11 @@ Charts: [`backend/perf/results/charts.html`](backend/perf/results/charts.html) (
 
 ## 2. Message-queue throughput and RLUSD/UCTUSD settlement time
 
-Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) because settlement makes real JSON-RPC calls to XRPL Testnet.
+Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) because settlement makes real JSON-RPC calls to XRPL Testnet. The token in this project is **UCTUSD**.
 
-**Queue enqueue and settlement (re-measured 2026-09-07 on this fork):** 200 `enqueue_settlement` calls (SQLite insert + commit, Redis `XADD`, then a second commit storing `stream_entry_id`), then five live treasury-to-recipient Testnet Payments. Enqueue-only entries were removed from the stream afterwards so they could not sit ahead of demo work.
+The **2026-09-07** and **2026-09-24** queue/settlement timings below are host samples. This repository does not have a saved stdout log for those runs. A saved enqueue-only log from **2026-09-27** is in §2b.
+
+**Queue enqueue and settlement (re-measured 2026-09-07 on this fork):** 200 `enqueue_settlement` calls (SQLite insert + commit, Redis `XADD`, then a second commit storing `stream_entry_id`), then five live treasury-to-recipient Testnet Payments. Enqueue-only entries were removed from the stream afterwards so they could not sit ahead of demo work. Those 7 Sep numbers are a sample without a saved log.
 
 | Metric | Result | When |
 |---|---|---|
@@ -51,7 +53,7 @@ Measured separately from the HTTP mix (`scripts/benchmark_settlement.py`) becaus
 
 ### 2a. Larger settlement sample (re-run 2026-09-24)
 
-The 2026-09-07 settlement sample was only five payments, so `scripts.benchmark_settlement 15` was re-run on **2026-09-24** to give the timing a spread. Host: macOS (arm64), Python 3.10.13, Redis 8.10.1 on `localhost:6379`, uvicorn running alongside, SQLite on local disk (not OneDrive). Same script and same platform treasury wallet as before; the recipient's XRPL account and TrustLine already existed, so no faucet or TrustSet time is in these numbers. The script also re-ran the 200-message enqueue timing.
+The 2026-09-07 settlement sample was only five payments, so `scripts.benchmark_settlement 15` was re-run on **2026-09-24** to give the timing a spread. Host: macOS (arm64), Python 3.10.13, Redis 8.10.1 on `localhost:6379`, uvicorn running alongside, SQLite on local disk (not OneDrive). Same script and same platform treasury wallet as before; the recipient's XRPL account and TrustLine already existed, so no faucet or TrustSet time is in these numbers. The script also re-ran the 200-message enqueue timing. Those 24 Sep figures are a sample that does not have a saved stdout log; fifteen payments is a timing sample, not a reliability proof. The token paid on Testnet was **UCTUSD**.
 
 | Metric | Result |
 |---|---|
@@ -65,11 +67,23 @@ Method note: the script prints only the total and the average. Per-transaction d
 
 Reading it: the 15-payment average (15.1 s) sits between the two earlier samples (12.4 s and 17.5 s per transaction), and individual payments cluster around two values (about 12.4 s and about 15.5–16 s), which fits ledger-close timing rather than application work. Enqueue was 62 msg/s here against 29.2 msg/s on the OneDrive-backed Windows host and 517 msg/s in the 2026-09-01 sketch sample; this run did not isolate why the fork is slower than the sketch (the extra commit per enqueue for the outbox is the likely cost, but that is not measured here). The benchmark leaves 15 settled `benchmark-sender` remittances in the development database, and the treasury 22.03 UCTUSD lower.
 
+### 2b. Saved enqueue-only log (2026-09-27)
+
+This is **enqueue throughput only** (SQLite remittance/outbox writes plus Redis Stream `XADD`), not consumer/worker throughput and not a live XRPL/Testnet payment. Date: **2026-09-27**. The token in this project is **UCTUSD**. Full stdout: [`backend/perf/results/benchmark_enqueue_2026-09-27.txt`](backend/perf/results/benchmark_enqueue_2026-09-27.txt).
+
+Measured line from that file:
+
+```
+Message-queue enqueue: 200 messages in 2.462s (81.2 msg/s)
+```
+
+The script then printed `Skipping live XRPL settlement (--enqueue-only).` This subsection does not replace the 7 Sep or 24 Sep sample timings above.
+
 ## 3. Concurrent-use behaviour and failure rates
 
 - 0 failures across the 50-user, 60 s HTTP run (§1). HTTP success rate **100%** (2,218 / 2,218).
 - An earlier 60 s attempt used the sketch locust mix (R10–R100). About 18% of `POST /remittances` returned 422 because the default R25 fee consumed the principal — a correctness guard on this fork, not an overload failure. The locustfile now uses R100–R500; that mix is what §1 reports.
-- Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5, and the 2026-09-24 sample (§2a) was **15/15**.
+- Settlement success **5/5** on the 2026-09-07 Testnet sample (`tesSUCCESS`, no retries). The 2026-09-01 sample was also 5/5, and the 2026-09-24 sample (§2a) was **15/15**. Those are small Testnet samples without a saved log; they do not prove reliability. The 2026-09-27 saved log (§2b) is enqueue-only (no Testnet payment).
 - Not load-tested: concurrent settlement (the worker handles one message at a time) and concurrent quotes from a single sender (the limits race noted in the specification's limitations). Concurrency in §1 is 50 simultaneous HTTP users.
 - Failed-settlement must not credit the recipient (FR-24) is a correctness property in `backend/tests/test_settlement.py` (mocked XRPL), not a live load test. The suite currently collects **132** pytest tests.
 
